@@ -1,0 +1,47 @@
+name: 🐛 Bug Report
+description: We are far from perfect, but we are definitely trying to get there! Create a report to help us improve!
+title: "[BUG] <Short description or primary error message>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the bug?
+      description: A clear and concise description of what the bug is. Ex. When running check XYZ, [...]
+    validations:
+      required: true
+  - type: textarea
+    id: reproducibility
+    attributes:
+      label: How can we reproduce the bug?
+      description: A code example that reproduces the error, accompanied by expected vs actual behavior.
+    validations:
+      required: true
+  - type: input
+    id: streamdaq-version
+    attributes:
+      label: Streamdaq Version
+      description: Which streamdaq version are you using (`pip show streamdaq`)? (e.g., 0.5.0)
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: Which Python version are you streamdaq-ing in? (e.g., 3.11.5)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you streamdaq-ing on? (e.g., Ubuntu 22.04, Windows 11, macOS Sonoma)
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Any other additional context?
+      description: Any further information that can help find the root cause and fix the bug faster.
+    validations:
+      required: false
