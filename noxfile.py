@@ -5,7 +5,7 @@ from nox.sessions import Session
 nox.options.default_venv_backend = "uv"
 
 
-@nox.session(python=["3.11", "3.12"])
+@nox.session(python=["3.11", "3.12", "3.13"])
 def tests(session: Session) -> None:
     """Run the test suite with pytest and coverage."""
     # Install the package itself along with test dependencies
