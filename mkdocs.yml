@@ -1,20 +1,44 @@
-site_name: Streamdaq v2 Docs
+site_name: Streamdaq Documentation
+repo_url: https://github.com/bilpapster/stream-DaQ
+repo_name: datalab/streamdaq
 theme:
   name: material
+  features:
+    - navigation.footer
   palette:
     - scheme: default
       toggle:
-        icon: material/brightness-7
+        icon: material/weather-night
         name: Switch to dark mode
     - scheme: slate
       toggle:
-        icon: material/brightness-4
+        icon: material/weather-sunny
         name: Switch to light mode
-
+  icon:
+    logo: material/library
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+  font:
+    text: Inter
+    code: JetBrains Mono
+extra_css:
+  - stylesheets/extra.css
+extra:
+  homepage: https://datalab.csd.auth.gr/
 plugins:
   - search
-  - mkdocs-jupyter
-
+  - git-committers:
+      repository: Datalab-Csd-Auth/streamdaq
+      branch: main
+      enabled: true
+  - mkdocs-jupyter:
+      execute: true          # Forces the notebook to run during 'mkdocs build' or 'serve'
+      allow_errors: false    # CRITICAL: If a notebook cell crashes, the CI deployment fails
+      kernel_name: python3   # Ensures it uses the standard Python kernel
+      include_source: true   # (Optional Bonus) Adds a download button for users to download your .ipynb tutorials
+  - git-revision-date-localized:
+      enable_creation_date: false
 nav:
   - Home: index.md
   - Tutorials: notebooks/starting_example.ipynb
