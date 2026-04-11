@@ -47,9 +47,13 @@ Repository = "https://github.com/Datalab-Csd-Auth/streamdaq"
 # Define optional dependencies for testing and docs
 [project.optional-dependencies]
 dev = [
+    "streamdaq[test,docs]",
     "pytest>=9.0",
     "pytest-cov>=7.0",
     "pre-commit>=4.5.1",
+    "ruff>=0.15.10",
+    "nox>=2026.4.10",
+    "mypy>=1.20.0",
     "identify>=2.6.18",  # used by pre-commit-ruff to lint pyproject.toml
 ]
 test = [
