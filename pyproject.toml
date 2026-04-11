@@ -48,7 +48,8 @@ Repository = "https://github.com/Datalab-Csd-Auth/streamdaq"
 dev = [
     "pytest>=9.0",
     "pytest-cov>=7.0",
-    "pre-commit>=4.5.1"
+    "pre-commit>=4.5.1",
+    "identify>=2.6.18",  # used by pre-commit-ruff to lint pyproject.toml
 ]
 test = [
     "pytest>=9.0",
