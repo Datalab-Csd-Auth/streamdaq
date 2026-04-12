@@ -1,7 +1,9 @@
-site_name: Streamdaq Documentation
+site_name: Streamdaq Docs
 repo_url: https://github.com/bilpapster/stream-DaQ
 repo_name: datalab/streamdaq
 theme:
+  logo: images/logo.png
+  favicon: images/logo.png
   name: material
   features:
     - navigation.footer
@@ -15,12 +17,9 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   icon:
-    logo: material/library
     repo: fontawesome/brands/github
-    edit: material/pencil
-    view: material/eye
   font:
-    text: Inter
+    text: Nunito
     code: JetBrains Mono
 extra_css:
   - stylesheets/extra.css
@@ -32,13 +31,27 @@ plugins:
       repository: Datalab-Csd-Auth/streamdaq
       branch: main
       enabled: true
+  - glightbox
   - mkdocs-jupyter:
-      execute: true          # Forces the notebook to run during 'mkdocs build' or 'serve'
-      allow_errors: false    # CRITICAL: If a notebook cell crashes, the CI deployment fails
-      kernel_name: python3   # Ensures it uses the standard Python kernel
-      include_source: true   # (Optional Bonus) Adds a download button for users to download your .ipynb tutorials
+      execute: true
+      allow_errors: false
+      kernel_name: python3
+      include_source: True
   - git-revision-date-localized:
       enable_creation_date: false
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - pymdownx.details
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.superfences
+  - pymdownx.tilde
 nav:
   - Home: index.md
-  - Tutorials: notebooks/starting_example.ipynb
+  - Plug-and-play Examples:
+    - notebooks/starting_example.ipynb
