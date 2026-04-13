@@ -95,5 +95,5 @@ warn_unused_configs = true
 
 # --- PYTEST & COVERAGE CONFIGURATION ---
 [tool.pytest.ini_options]
-# addopts = "--cov=streamdaq --cov-report=term-missing --cov-fail-under=85"
+addopts = "--cov=streamdaq --cov-report=term-missing --cov-fail-under=85"
 testpaths = ["tests"]
