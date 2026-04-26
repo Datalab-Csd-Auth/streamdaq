@@ -36,6 +36,20 @@ class TestStringsToLength:
     def test_parametrized(self, elements, expected):
         assert strings_to_length(elements) == expected
 
+    @pytest.mark.parametrize(
+        "elements, expected",
+        [
+            ([1, 22, 333], [1, 2, 3]),
+            ([1.5, 22.33], [3, 5]),
+            ([True, False], [4, 5]),
+            ([None, "a"], [4, 1]),
+            ([42, "hello", 3.14], [2, 5, 4]),
+        ],
+        ids=["ints", "floats", "booleans", "none", "mixed"],
+    )
+    def test_non_string_inputs(self, elements, expected):
+        assert strings_to_length(elements) == expected
+
 
 class TestRegexConformanceCount:
     def test_simple_pattern_partial(self):
