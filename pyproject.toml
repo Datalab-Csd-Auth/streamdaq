@@ -34,7 +34,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
-  "pathway~=0.30.0"
+  "pathway~=0.30.0",
+  "datasketch~=1.10.0",
+  "datasketches~=5.2.0",
 ]
 
 [project.urls]
