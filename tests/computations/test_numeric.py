@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 
 from streamdaq.computations.numeric import (
+    calculate_correlation,
+    compute_above_mean_count,
     digit_count,
     filter_numeric,
     first_digit,
@@ -470,3 +472,61 @@ class TestLinearSlope:
 
     def test_fractional_slope(self):
         assert linear_slope([0, 0.5, 1], [0, 1, 2]) == pytest.approx(0.5)
+
+
+class TestComputeAboveMeanCount:
+    def test_normal_case(self):
+        assert compute_above_mean_count([1, 2, 3, 4, 5]) == 2
+
+    def test_all_above_mean(self):
+        assert compute_above_mean_count([1, 1, 1, 100]) == 1
+
+    def test_none_above_mean(self):
+        assert compute_above_mean_count([5, 5, 5]) == 0
+
+    def test_single_element(self):
+        assert compute_above_mean_count([42]) == 0
+
+    def test_floats(self):
+        assert compute_above_mean_count([1.0, 2.0, 3.0]) == 1
+
+
+class TestCalculateCorrelation:
+    @pytest.mark.parametrize("method", ["pearson", "spearman", "kendall"])
+    def test_perfect_positive(self, method):
+        result = calculate_correlation([1, 2, 3, 4, 5], [2, 4, 6, 8, 10], method=method)
+        assert result == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("method", ["pearson", "spearman", "kendall"])
+    def test_perfect_negative(self, method):
+        result = calculate_correlation([1, 2, 3, 4, 5], [10, 8, 6, 4, 2], method=method)
+        assert result == pytest.approx(-1.0)
+
+    def test_spearman_monotonic_nonlinear(self):
+        result = calculate_correlation([1, 2, 3, 4, 5], [1, 4, 9, 16, 25], method="spearman")
+        assert result == pytest.approx(1.0)
+
+    def test_precision_rounding(self):
+        result = calculate_correlation([1, 2, 3, 4], [1, 3, 2, 5], method="pearson", precision=2)
+        assert result == round(result, 2)
+
+    def test_empty_returns_nan(self):
+        result = calculate_correlation([], [])
+        assert math.isnan(result)
+
+    @pytest.mark.filterwarnings("ignore: An input array is constant")
+    def test_constant_array_returns_nan(self):
+        result = calculate_correlation([5, 5, 5], [1, 2, 3])
+        assert math.isnan(result)
+
+    def test_invalid_method_raises(self):
+        with pytest.raises(NotImplementedError, match="cosine"):
+            calculate_correlation([1, 2], [3, 4], method="cosine")
+
+    def test_cramer_smoke(self):
+        result = calculate_correlation([0, 0, 1, 1], [0, 1, 0, 1], method="cramer")
+        assert isinstance(result, float)
+
+    def test_precision_none_no_rounding(self):
+        result = calculate_correlation([1, 2, 3], [2, 4, 6], precision=None)
+        assert result == pytest.approx(1.0)

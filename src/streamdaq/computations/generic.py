@@ -26,6 +26,16 @@ def most_frequent_elements(
     return tuple(elem for elem, freq in counts.items() if freq == max_freq)
 
 
+def compute_constancy(
+    elements: Iterable[int | float | str],
+) -> int:
+    elements = ensure_iterable(elements)
+    counts = Counter(elements)
+    if not counts:
+        return 0
+    return counts.most_common(1)[0][1]
+
+
 def count_singletons(
     elements: Iterable[int | float | str],
 ) -> int:
