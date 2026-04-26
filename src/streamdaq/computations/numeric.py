@@ -1,9 +1,12 @@
 import math
 from collections.abc import Iterable
 from decimal import Decimal
+from statistics import mean
 from typing import Any
 
 import numpy as np
+from scipy.stats import kendalltau, pearsonr, spearmanr
+from scipy.stats.contingency import association
 
 from streamdaq.utils.validation import ensure_iterable
 
@@ -188,3 +191,41 @@ def linear_slope(
     if precision is not None:
         return round(slope, precision)
     return slope
+
+
+def compute_above_mean_count(elements: Iterable[int | float]) -> int:
+    elements = ensure_iterable(elements)
+    m = mean(elements)
+    return (list(elements) > m).sum()
+
+
+def calculate_correlation(x, y, method: str = "pearson", precision: int | None = None) -> float:
+    """
+    Computes the correlation/association between x and y, rounded to the specified precision.
+
+    :param x: the x array_like values
+    :param y: the y array_like values
+    :param precision: the number of decimal places to include in the result
+    :return: the selec correlation coefficient
+    """
+    try:
+        if method == "pearson":
+            result = pearsonr(x, y).statistic
+        elif method == "spearman":
+            result = spearmanr(x, y).statistic
+        elif method == "kendall":
+            result = kendalltau(x, y).statistic
+        elif method == "cramer":
+            observations = np.array(list(zip(x, y)))
+            result = association(observations, method="cramer")
+        else:
+            raise NotImplementedError(
+                f"Correlation method `{method}` is not implemented yet. "
+                "Please use one of `pearson`, `spearman`, `kendall`, or `cramer`."
+            )
+        if precision is None:
+            return result
+        return round(result, precision)
+    except ValueError:
+        # If the input arrays are empty or have different lengths, scipy will raise a ValueError
+        return float("nan")
