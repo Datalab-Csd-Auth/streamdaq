@@ -6,7 +6,7 @@ from streamdaq.utils.validation import ensure_iterable
 
 def strings_to_length(elements: Iterable[str]) -> list[int]:
     elements = ensure_iterable(elements)
-    return [len(s) for s in elements]
+    return [len(str(s)) for s in elements]
 
 
 def regex_conformance_count(
