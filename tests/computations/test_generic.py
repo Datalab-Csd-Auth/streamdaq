@@ -1,6 +1,7 @@
 import pytest
 
 from streamdaq.computations.generic import (
+    compute_constancy,
     count_singletons,
     is_monotonic,
     most_frequent_elements,
@@ -175,3 +176,31 @@ class TestIsMonotonic:
 
     def test_range_input(self):
         assert is_monotonic(range(5)) is True
+
+
+class TestComputeConstancy:
+    @pytest.mark.parametrize(
+        "elements, expected",
+        [
+            ([1, 2, 2, 3], 2),
+            ([7, 7, 7], 3),
+            ([1, 2, 3, 4], 1),
+            ([], 0),
+            ([42], 1),
+            ([1, 1, 2, 2, 3], 2),
+            (["a", "b", "a", "a"], 3),
+            (5, 1),
+        ],
+        ids=[
+            "single_dominant",
+            "all_same",
+            "all_unique",
+            "empty",
+            "single",
+            "tie",
+            "strings",
+            "scalar",
+        ],
+    )
+    def test_constancy(self, elements, expected):
+        assert compute_constancy(elements) == expected
