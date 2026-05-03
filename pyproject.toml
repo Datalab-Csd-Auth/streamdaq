@@ -34,7 +34,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
-  "pathway~=0.30.0"
+  "pathway~=0.30.0",
+  "pydantic~=2.13.3",
+  "StrEnum~=0.4.15",
 ]
 
 [project.urls]
