@@ -15,6 +15,9 @@ class DataTypeApplicability(Enum):
         # handled in DataQualityMeasure __init_subclass__
         data_type_applicability.available_measures = []
 
+        # handled in DataQualityCheck __init_subclass__
+        data_type_applicability.available_checks = []
+
         return data_type_applicability
 
     def is_applicable_to(self, data_type: type | str):
