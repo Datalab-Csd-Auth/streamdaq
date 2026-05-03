@@ -37,6 +37,8 @@ dependencies = [
   "pathway~=0.30.0",
   "datasketch~=1.10.0",
   "datasketches~=5.2.0",
+  "pydantic~=2.13.3",
+  "StrEnum~=0.4.15",
 ]
 
 [project.urls]
