@@ -178,13 +178,12 @@ def linear_slope(
     x = np.array(timestamps_list, dtype=np.float64)
     y = np.array(values_list, dtype=np.float64)
     x = x - x.min()
+    x_centered = x - np.mean(x)
+    y_centered = y - np.mean(y)
+    denominator = np.dot(x_centered, x_centered)
 
-    denominator = np.sum((x - np.mean(x)) ** 2)
     if denominator == 0:
         return 0.0
-
-    coefficients = np.polyfit(x, y, 1)
-    slope = float(coefficients[0])
-    if precision is not None:
-        return round(slope, precision)
-    return slope
+    numerator = np.dot(x_centered, y_centered)
+    slope = float(numerator / denominator)
+    return round(slope, precision) if precision is not None else slope

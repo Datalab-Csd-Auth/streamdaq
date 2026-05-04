@@ -131,6 +131,8 @@ def make_range_predicate(
         raise ValueError("Range with equal bounds requires both to be inclusive")
 
     def range_check(x: int | float) -> bool:
+        if math.isnan(x):
+            return False
         lower_ok = (x >= lower) if inclusive_lower else (x > lower)
         upper_ok = (x <= upper) if inclusive_upper else (x < upper)
         return lower_ok and upper_ok
