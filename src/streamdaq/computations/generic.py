@@ -22,8 +22,8 @@ def most_frequent_elements(
     counts = Counter(elements)
     if not counts:
         return ()
-    max_freq = counts.most_common(1)[0][1]
-    return tuple(elem for elem, freq in counts.most_common() if freq == max_freq)
+    max_freq = max(counts.values())
+    return tuple(elem for elem, freq in counts.items() if freq == max_freq)
 
 
 def count_singletons(
