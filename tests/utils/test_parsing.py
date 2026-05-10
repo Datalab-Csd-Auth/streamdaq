@@ -267,6 +267,10 @@ class TestMakeRangePredicate:
         with pytest.raises(TypeError, match="must be numeric"):
             make_range_predicate("0", 10)
 
+    def test_nan_returns_false(self):
+        pred = make_range_predicate(-100, 100)
+        assert pred(float("nan")) is False
+
 
 class TestParseThresholdExpr:
     @pytest.mark.parametrize(
