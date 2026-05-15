@@ -1,12 +1,16 @@
+import math
+
 import pytest
 
 from streamdaq.computations.generic import (
+    calculate_correlation,
     compute_constancy,
     count_singletons,
     is_monotonic,
     most_frequent_elements,
     set_conformance_count,
 )
+from streamdaq.utils.correlation_method import CorrelationMethod
 
 
 class TestSetConformanceCount:
@@ -204,3 +208,56 @@ class TestComputeConstancy:
     )
     def test_constancy(self, elements, expected):
         assert compute_constancy(elements) == expected
+
+
+class TestCalculateCorrelation:
+    @pytest.mark.parametrize("method", ["pearson", "spearman", "kendall"])
+    def test_perfect_positive(self, method):
+        result = calculate_correlation([1, 2, 3, 4, 5], [2, 4, 6, 8, 10], method=method)
+        assert result == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("method", ["pearson", "spearman", "kendall"])
+    def test_perfect_negative(self, method):
+        result = calculate_correlation([1, 2, 3, 4, 5], [10, 8, 6, 4, 2], method=method)
+        assert result == pytest.approx(-1.0)
+
+    def test_spearman_monotonic_nonlinear(self):
+        result = calculate_correlation([1, 2, 3, 4, 5], [1, 4, 9, 16, 25], method="spearman")
+        assert result == pytest.approx(1.0)
+
+    def test_precision_rounding(self):
+        result = calculate_correlation([1, 2, 3, 4], [1, 3, 2, 5], method="pearson", precision=2)
+        assert result == round(result, 2)
+
+    def test_empty_returns_nan(self):
+        result = calculate_correlation([], [])
+        assert math.isnan(result)
+
+    @pytest.mark.filterwarnings("ignore: An input array is constant")
+    def test_constant_array_returns_nan(self):
+        result = calculate_correlation([5, 5, 5], [1, 2, 3])
+        assert math.isnan(result)
+
+    def test_invalid_method_raises(self):
+        with pytest.raises(NotImplementedError, match="cosine"):
+            calculate_correlation([1, 2], [3, 4], method="cosine")
+
+    def test_cramer_smoke(self):
+        result = calculate_correlation([0, 0, 1, 1], [0, 1, 0, 1], method="cramer")
+        assert isinstance(result, float)
+
+    def test_precision_none_no_rounding(self):
+        result = calculate_correlation([1, 2, 3], [2, 4, 6], precision=None)
+        assert result == pytest.approx(1.0)
+
+    def test_enum_method_param(self):
+        result = calculate_correlation(
+            [1, 2, 3, 4, 5], [2, 4, 6, 8, 10], method=CorrelationMethod.PEARSON
+        )
+        assert result == pytest.approx(1.0)
+
+    def test_scalar_inputs_returns_nan(self):
+        # Scalar inputs get wrapped by ensure_iterable into single-element lists,
+        # which causes scipy to raise ValueError (need at least 2 observations)
+        result = calculate_correlation(5, 10)
+        assert math.isnan(result)

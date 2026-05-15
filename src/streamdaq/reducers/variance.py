@@ -1,7 +1,7 @@
 import pathway as pw
 
 
-class _StdDevReducer(pw.BaseCustomAccumulator):
+class _VarianceReducer(pw.BaseCustomAccumulator):
     def __init__(self, count, sum, sum_squares):
         self.count = count
         self.sum = sum
@@ -28,4 +28,4 @@ class _StdDevReducer(pw.BaseCustomAccumulator):
         self.sum_squares -= other.sum_squares
 
 
-std_dev_reducer = pw.reducers.udf_reducer(_StdDevReducer)
+variance_reducer = pw.reducers.udf_reducer(_VarianceReducer)
