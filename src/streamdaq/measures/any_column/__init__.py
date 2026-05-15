@@ -1,5 +1,6 @@
 from .availability import Availability
 from .constancy import Constancy
+from .correlation import Correlation
 from .count import Count
 from .distinct_count import DistinctCount
 from .distinct_count_approx import DistinctCountApprox
@@ -28,6 +29,7 @@ __all__ = [
     "Availability",
     "Constancy",
     "Count",
+    "Correlation",
     "DistinctCountApprox",
     "DistinctCount",
     "DistinctFractionApprox",

@@ -1,7 +1,6 @@
 from .above_mean_count import AboveMeanCount
 from .above_mean_fraction import AboveMeanFraction
 from .best_line_fit_slope import BestLineFitSlope
-from .correlation import Correlation
 from .first_digit_freqs import FirstDigitFreqs
 from .frozen_numbers import FrozenNumbers
 from .in_range_count import InRangeCount
@@ -17,14 +16,13 @@ from .median_integer_part_length import MedianIntegerPartLength
 from .min_fractional_part_length import MinFractionalPartLength
 from .min_integer_part_length import MinIntegerPartLength
 from .percentiles import Percentiles
-from .standard_deviation import StandardDeviation
 from .sum import Sum
+from .variance import Variance
 
 __all__ = [
     "AboveMeanCount",
     "AboveMeanFraction",
     "BestLineFitSlope",
-    "Correlation",
     "FirstDigitFreqs",
     "FrozenNumbers",
     "InRangeCount",
@@ -40,6 +38,6 @@ __all__ = [
     "MinFractionalPartLength",
     "MinIntegerPartLength",
     "Percentiles",
-    "StandardDeviation",
+    "Variance",
     "Sum",
 ]

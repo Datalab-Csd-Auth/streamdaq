@@ -2,64 +2,64 @@ import pytest
 
 from streamdaq.reducers.distinct_count_approx import _DistinctCountApproxReducer
 from streamdaq.reducers.most_frequent_approx import _MostFrequentApproxReducer
-from streamdaq.reducers.std_dev import _StdDevReducer
+from streamdaq.reducers.variance import _VarianceReducer
 
 
 class TestStdDevReducer:
     def test_from_row(self):
-        r = _StdDevReducer.from_row([5.0])
+        r = _VarianceReducer.from_row([5.0])
         assert r.count == 1
         assert r.sum == 5.0
         assert r.sum_squares == 25.0
 
     def test_known_population_variance(self):
         values = [2, 4, 4, 4, 5, 5, 7, 9]  # variance = 4.0
-        acc = _StdDevReducer.from_row([values[0]])
+        acc = _VarianceReducer.from_row([values[0]])
         for v in values[1:]:
-            acc.update(_StdDevReducer.from_row([v]))
+            acc.update(_VarianceReducer.from_row([v]))
         assert acc.compute_result() == pytest.approx(4.0)
 
     def test_uniform_zero_variance(self):
         values = [3, 3, 3, 3]
-        acc = _StdDevReducer.from_row([values[0]])
+        acc = _VarianceReducer.from_row([values[0]])
         for v in values[1:]:
-            acc.update(_StdDevReducer.from_row([v]))
+            acc.update(_VarianceReducer.from_row([v]))
         assert acc.compute_result() == 0.0
 
     def test_single_value(self):
-        acc = _StdDevReducer.from_row([7])
+        acc = _VarianceReducer.from_row([7])
         assert acc.compute_result() == 0.0
 
     def test_retract(self):
         values = [2, 4, 4, 4, 5, 5, 7, 9]
-        acc = _StdDevReducer.from_row([values[0]])
+        acc = _VarianceReducer.from_row([values[0]])
         for v in values[1:]:
-            acc.update(_StdDevReducer.from_row([v]))
-        acc.retract(_StdDevReducer.from_row([9]))
-        expected_acc = _StdDevReducer.from_row([2])
+            acc.update(_VarianceReducer.from_row([v]))
+        acc.retract(_VarianceReducer.from_row([9]))
+        expected_acc = _VarianceReducer.from_row([2])
         for v in [4, 4, 4, 5, 5, 7]:
-            expected_acc.update(_StdDevReducer.from_row([v]))
+            expected_acc.update(_VarianceReducer.from_row([v]))
         assert acc.compute_result() == pytest.approx(expected_acc.compute_result())
 
     def test_negative_values(self):
         values = [-3, -1, 1, 3]  # mean=0, var=(9+1+1+9)/4=5.0
-        acc = _StdDevReducer.from_row([values[0]])
+        acc = _VarianceReducer.from_row([values[0]])
         for v in values[1:]:
-            acc.update(_StdDevReducer.from_row([v]))
+            acc.update(_VarianceReducer.from_row([v]))
         assert acc.compute_result() == pytest.approx(5.0)
 
     def test_floating_point(self):
         values = [0.1, 0.2, 0.3]
-        acc = _StdDevReducer.from_row([values[0]])
+        acc = _VarianceReducer.from_row([values[0]])
         for v in values[1:]:
-            acc.update(_StdDevReducer.from_row([v]))
+            acc.update(_VarianceReducer.from_row([v]))
         # mean=0.2, var = ((0.01+0+0.01)/3) = 0.00666...
         assert acc.compute_result() == pytest.approx(0.00666666, abs=1e-6)
 
     def test_retract_all_raises_zero_division(self):
         # Retracting all elements leaves count=0, which causes ZeroDivisionError
-        acc = _StdDevReducer.from_row([5.0])
-        acc.retract(_StdDevReducer.from_row([5.0]))
+        acc = _VarianceReducer.from_row([5.0])
+        acc.retract(_VarianceReducer.from_row([5.0]))
         assert acc.count == 0
         with pytest.raises(ZeroDivisionError):
             acc.compute_result()

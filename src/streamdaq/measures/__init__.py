@@ -1,6 +1,7 @@
 from .any_column import (
     Availability,
     Constancy,
+    Correlation,
     Count,
     DistinctCount,
     DistinctCountApprox,
@@ -38,7 +39,6 @@ from .numeric import (
     AboveMeanCount,
     AboveMeanFraction,
     BestLineFitSlope,
-    Correlation,
     FirstDigitFreqs,
     FrozenNumbers,
     InRangeCount,
@@ -54,8 +54,8 @@ from .numeric import (
     MinFractionalPartLength,
     MinIntegerPartLength,
     Percentiles,
-    StandardDeviation,
     Sum,
+    Variance,
 )
 
 __all__ = [
@@ -66,6 +66,7 @@ __all__ = [
     "Availability",
     "Constancy",
     "Count",
+    "Correlation",
     "DistinctCountApprox",
     "DistinctCount",
     "DistinctFractionApprox",
@@ -99,7 +100,6 @@ __all__ = [
     "AboveMeanCount",
     "AboveMeanFraction",
     "BestLineFitSlope",
-    "Correlation",
     "FirstDigitFreqs",
     "FrozenNumbers",
     "InRangeCount",
@@ -115,6 +115,6 @@ __all__ = [
     "MinFractionalPartLength",
     "MinIntegerPartLength",
     "Percentiles",
-    "StandardDeviation",
+    "Variance",
     "Sum",
 ]

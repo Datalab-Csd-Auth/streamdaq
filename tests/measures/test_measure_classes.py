@@ -10,6 +10,7 @@ import streamdaq.measures.numeric as numeric_mod
 # any_column measures
 from streamdaq.measures.any_column.availability import Availability
 from streamdaq.measures.any_column.constancy import Constancy
+from streamdaq.measures.any_column.correlation import Correlation
 from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.distinct_count import DistinctCount
 from streamdaq.measures.any_column.distinct_count_approx import DistinctCountApprox
@@ -46,7 +47,6 @@ from streamdaq.measures.categorical.regex_fraction import RegexFraction
 from streamdaq.measures.numeric.above_mean_count import AboveMeanCount
 from streamdaq.measures.numeric.above_mean_fraction import AboveMeanFraction
 from streamdaq.measures.numeric.best_line_fit_slope import BestLineFitSlope
-from streamdaq.measures.numeric.correlation import Correlation
 from streamdaq.measures.numeric.first_digit_freqs import FirstDigitFreqs
 from streamdaq.measures.numeric.frozen_numbers import FrozenNumbers
 from streamdaq.measures.numeric.in_range_count import InRangeCount
@@ -62,8 +62,8 @@ from streamdaq.measures.numeric.median_integer_part_length import MedianIntegerP
 from streamdaq.measures.numeric.min_fractional_part_length import MinFractionalPartLength
 from streamdaq.measures.numeric.min_integer_part_length import MinIntegerPartLength
 from streamdaq.measures.numeric.percentiles import Percentiles
-from streamdaq.measures.numeric.standard_deviation import StandardDeviation
 from streamdaq.measures.numeric.sum import Sum
+from streamdaq.measures.numeric.variance import Variance
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 
 
@@ -274,7 +274,7 @@ class TestApplicabilityAttributes:
             MedianIntegerPartLength,
             MinFractionalPartLength,
             MinIntegerPartLength,
-            StandardDeviation,
+            Variance,
             Sum,
         ],
         ids=lambda c: c.__name__,
@@ -299,7 +299,7 @@ class TestDependencies:
             (Count, []),
             (Tuple, []),
             (SortedTupleValue, []),
-            (SortedTupleTime, []),
+            (SortedTupleTime, [Tuple]),
             (Ndarray, []),
             (Max, []),
             (Min, []),
@@ -344,7 +344,7 @@ class TestDependencies:
             (MinFractionalPartLength, []),
             (MinIntegerPartLength, []),
             (Percentiles, [Tuple]),
-            (StandardDeviation, []),
+            (Variance, []),
             (Sum, []),
             # categorical
             (MaxLength, []),
@@ -360,12 +360,12 @@ class TestDependencies:
         assert cls._dependencies == expected
 
 
-class TestStandardDeviationExport:
+class TestVarianceExport:
     def test_in_numeric_all(self):
-        assert "StandardDeviation" in numeric_mod.__all__
+        assert "Variance" in numeric_mod.__all__
 
     def test_in_measures_all(self):
-        assert "StandardDeviation" in measures_mod.__all__
+        assert "Variance" in measures_mod.__all__
 
 
 class TestInitExports:
@@ -377,7 +377,7 @@ class TestInitExports:
     def test_any_column_init_all(self):
         assert isinstance(any_column_mod.__all__, list)
         assert "Availability" in any_column_mod.__all__
-        assert len(any_column_mod.__all__) == 25
+        assert len(any_column_mod.__all__) == 26
 
     def test_categorical_init_all(self):
         assert isinstance(categorical_mod.__all__, list)
@@ -387,7 +387,7 @@ class TestInitExports:
     def test_numeric_init_all(self):
         assert isinstance(numeric_mod.__all__, list)
         assert "FrozenNumbers" in numeric_mod.__all__
-        assert len(numeric_mod.__all__) == 21
+        assert len(numeric_mod.__all__) == 20
 
 
 class TestGetReducerSmoke:
@@ -410,7 +410,7 @@ class TestGetReducerSmoke:
             (Monotonic, dict(column="x")),
             (MostFrequent, dict(column="x")),
             (Ndarray, dict(column="x")),
-            (SortedTupleTime, dict(column="x")),
+            (SortedTupleTime, dict(column="x", time_column="time")),
             (SortedTupleValue, dict(column="x")),
             (Tuple, dict(column="x")),
             (UniqueCount, dict(column="x")),
@@ -424,6 +424,7 @@ class TestGetReducerSmoke:
             (UniqueFraction, dict(column="x")),
             (UniqueOverDistinct, dict(column="x")),
             # any_column — roundable (precision=2)
+            (Correlation, dict(column="x", other_column="y")),
             (DistinctFraction, dict(column="x", precision=2)),
             (DistinctFractionApprox, dict(column="x", precision=2)),
             (DistinctPlaceholderFraction, dict(column="x", placeholders=["N/A"], precision=2)),
@@ -447,12 +448,11 @@ class TestGetReducerSmoke:
             # numeric — roundable (precision=None)
             (AboveMeanFraction, dict(column="x")),
             (BestLineFitSlope, dict(column="x", time_column="t")),
-            (Correlation, dict(column="x", other_column="y")),
             (FirstDigitFreqs, dict(column="x")),
             (InRangeFraction, dict(column="x", low=0, high=100)),
             (Mean, dict(column="x")),
             (Percentiles, dict(column="x")),
-            (StandardDeviation, dict(column="x")),
+            (Variance, dict(column="x")),
             (Sum, dict(column="x")),
             # numeric — roundable (precision=2)
             (AboveMeanFraction, dict(column="x", precision=2)),
@@ -462,7 +462,7 @@ class TestGetReducerSmoke:
             (InRangeFraction, dict(column="x", low=0, high=100, precision=2)),
             (Mean, dict(column="x", precision=2)),
             (Percentiles, dict(column="x", precision=2)),
-            (StandardDeviation, dict(column="x", precision=2)),
+            (Variance, dict(column="x", precision=2)),
             (Sum, dict(column="x", precision=2)),
             # categorical — plain
             (MaxLength, dict(column="x")),
