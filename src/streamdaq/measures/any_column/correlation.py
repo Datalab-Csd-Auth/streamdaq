@@ -3,7 +3,7 @@ from typing import ClassVar, Literal, Self
 
 import pathway as pw
 
-from streamdaq.computations.numeric import calculate_correlation
+from streamdaq.computations.generic import calculate_correlation
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability

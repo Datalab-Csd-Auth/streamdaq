@@ -3,6 +3,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable
 from typing import Literal
 
+from streamdaq.utils.correlation_method import CorrelationMethod, correlation_method_to_function_map
 from streamdaq.utils.validation import ensure_iterable
 
 
@@ -78,3 +79,31 @@ def is_monotonic(
             return False
         prev = current
     return True
+
+
+def calculate_correlation(
+    x, y, method: CorrelationMethod | str = CorrelationMethod.PEARSON, precision: int | None = None
+) -> float:
+    """
+    Computes the correlation/association between x and y, rounded to the specified precision.
+
+    :param x: the x array_like values
+    :param y: the y array_like values
+    :param precision: the number of decimal places to include in the result
+    :return: the selected correlation coefficient
+    """
+    try:
+        x, y = ensure_iterable(x), ensure_iterable(y)
+        if method not in correlation_method_to_function_map:
+            raise NotImplementedError(
+                f"Correlation method `{method}` is not implemented yet. "
+                f"Please use one of {list(correlation_method_to_function_map.keys())}."
+            )
+        correlation_function = correlation_method_to_function_map[method]
+        result = correlation_function(x, y)
+        if precision is None:
+            return result
+        return round(result, precision)
+    except ValueError:
+        # If the input arrays are empty or have different lengths, scipy will raise a ValueError
+        return float("nan")
