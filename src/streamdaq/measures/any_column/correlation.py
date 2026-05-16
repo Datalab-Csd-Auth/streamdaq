@@ -13,7 +13,6 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 class Correlation(RoundableDataQualityMeasure):
     other_column: str
     method: Literal["pearson", "spearman", "kendall", "cramer"] = field(default="pearson")
-    percentiles: list[int] = field(default_factory=lambda: [25, 50, 75])
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[Self]]] = [Tuple]
 
@@ -26,7 +25,7 @@ class Correlation(RoundableDataQualityMeasure):
                 f"method `{self.method}` is unknown. Valid options: {valid_correlation_methods}."
             )
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
                 calculate_correlation,
@@ -37,3 +36,12 @@ class Correlation(RoundableDataQualityMeasure):
                 self.precision,
             )
         )
+
+    def get_reduce_kwargs(self) -> dict[str, pw.ColumnExpression]:
+        reduce_kwargs = super().get_reduce_kwargs()  # constructs reduce args for Tuple(self.column)
+
+        # constructs reduce args for Tuple(self.other_column)
+        additional_kw = Tuple._get_internal_shared_column_name(self.other_column)
+        additional_arg = Tuple(self.other_column).get_reducer()
+        reduce_kwargs[additional_kw] = additional_arg
+        return reduce_kwargs

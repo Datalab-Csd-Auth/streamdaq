@@ -38,7 +38,7 @@ class FrozenNumbers(DataQualityMeasure):
         maximum = numbers_sorted_asc[-1]
         return maximum - minimum <= self.epsilon
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             self._are_numbers_frozen,
             bool,

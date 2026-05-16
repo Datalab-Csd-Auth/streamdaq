@@ -23,7 +23,7 @@ class MissingFraction(RoundableDataQualityMeasure):
             return set(self._explicit_missing_values)
         return set(self._explicit_missing_values + self.disguised)
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         all_missing_values = self._concatenate_explicit_diguised_values()
         return self._round_reducer_if_needed(
             pw.apply_with_type(

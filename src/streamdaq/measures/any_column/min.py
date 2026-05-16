@@ -12,4 +12,4 @@ class Min(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
 
     def get_reducer(self) -> pw.ColumnExpression:
-        return pw.reducers.min
+        return pw.reducers.min(pw.this[self.column])

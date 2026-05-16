@@ -4,6 +4,7 @@ from typing import Any
 
 import pathway as pw
 
+from streamdaq.orchestration.utils import gracefully_kill
 from streamdaq.schema.evb.definitions import _VALID_TIME_DIGITS
 
 
@@ -54,16 +55,12 @@ def discover_native_evb_schema(
 
     try:
         discovered_schema = schema_queue.get(timeout=timeout_seconds)
-
     except multiprocessing.queues.Empty:
-        raise TimeoutError(f"The EVB Schema Sniffer did not respond within {timeout_seconds} sec.")
-
+        raise TimeoutError(
+            f"The EVB Schema Sniffer did not respond within {timeout_seconds} sec."
+            "Make sure the EVB source is sending data and/or increase the timeout."
+        )
     finally:
-        if sniffer_process.is_alive():
-            sniffer_process.terminate()
-            sniffer_process.join(timeout=graceful_wait_seconds)
-            if sniffer_process.is_alive():  # pragma: no cover (cannot be reliably tested)
-                sniffer_process.kill()
-                sniffer_process.join()
+        gracefully_kill(sniffer_process, graceful_wait_seconds)
 
     return discovered_schema

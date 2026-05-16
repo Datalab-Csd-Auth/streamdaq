@@ -16,7 +16,7 @@ class UniqueFraction(RoundableDataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
                 lambda elements, total_count: fraction(count_singletons(elements), total_count),

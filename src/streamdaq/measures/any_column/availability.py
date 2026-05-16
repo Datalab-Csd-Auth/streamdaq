@@ -21,9 +21,5 @@ class Availability(DataQualityMeasure):
                 f"with a non-positive availability of at least {self.min_samples}. Must be >= 1."
             )
 
-    def get_reducer(self) -> pw.ColumnExpression:
-        return pw.apply_with_type(
-            lambda x: x >= self.min_samples,
-            bool,
-            pw.this[Count._get_internal_shared_column_name(self.column)],
-        )
+    def get_expression(self) -> pw.ColumnExpression:
+        return pw.this[Count._get_internal_shared_column_name(self.column)] >= self.min_samples

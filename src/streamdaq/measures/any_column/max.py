@@ -12,4 +12,4 @@ class Max(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
 
     def get_reducer(self) -> pw.ColumnExpression:
-        return pw.reducers.max
+        return pw.reducers.max(pw.this[self.column])

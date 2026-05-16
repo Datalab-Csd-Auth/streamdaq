@@ -11,5 +11,5 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 class WindowDuration(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.this._pw_window_end - pw.this._pw_window_start

@@ -18,7 +18,7 @@ count. Dependencies are
 - Final table is filtered to user-requested measures
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from typing import ClassVar, Self
 
@@ -43,12 +43,38 @@ class DataQualityMeasure(ABC):
     def is_applicable_to(self, data_type: type | str):
         return self._applicability.is_applicable_to(data_type)
 
-    @abstractmethod
-    def get_reducer(self) -> pw.ColumnExpression: ...
+    # override this if your measure needs any computation during the reduce phase
+    # that is not covered by the dependencies' get_reducer
+    def get_reducer(self) -> pw.ColumnExpression | None:
+        return None
+
+    def get_reduce_kwargs(self) -> dict[str, pw.ColumnExpression]:
+        reduce_kwargs: dict[str, pw.ColumnExpression] = dict()
+
+        if not self._dependencies:
+            overridable_kw = self._get_internal_overridable_placeholder_column_name()
+            arg = self.get_reducer()
+            reduce_kwargs[overridable_kw] = arg
+            return reduce_kwargs
+
+        for dependency in self._dependencies:
+            kw = dependency._get_internal_shared_column_name(self.column)
+            arg = dependency(self.column).get_reducer()
+            reduce_kwargs[kw] = arg
+        return reduce_kwargs
+
+    # override this if your measure needs a 2-layered computation:
+    # first a pw.reducer and then a with_columns on top of the reduced table
+    def get_expression(self) -> pw.ColumnExpression | None:
+        return None
 
     @classmethod
     def _get_internal_shared_column_name(cls, column: str) -> str:
         return f"{cls._streamdaq_internal_prefix}#{cls.__name__}#{column}"
+
+    @classmethod
+    def _get_internal_overridable_placeholder_column_name(cls) -> str:
+        return f"{cls._streamdaq_internal_prefix}#OVERRIDABLE_PLACEHOLDER_MEASURE_COLUMN"
 
 
 @dataclass(kw_only=True)

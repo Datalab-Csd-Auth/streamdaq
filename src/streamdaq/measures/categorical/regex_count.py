@@ -15,7 +15,7 @@ class RegexCount(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[Self]]] = [Tuple]
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             regex_conformance_count,
             int,
