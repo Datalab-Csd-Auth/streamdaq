@@ -18,7 +18,7 @@ class InRangeCount(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[Self]]] = [Tuple]
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             lambda elements: range_conformance_count(
                 elements, self.low, self.high, self.inclusive_low, self.inclusive_high

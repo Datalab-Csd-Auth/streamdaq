@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, Self
 
 import pathway as pw
 
@@ -12,8 +12,9 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class MinFractionalPartLength(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.NUMERIC_ONLY
+    _dependencies: ClassVar[list[type[Self]]] = [Tuple]
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             lambda elements: min(fractional_part_digit_count(elements)),
             int,

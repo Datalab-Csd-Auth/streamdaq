@@ -13,5 +13,4 @@ class Median(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.NUMERIC_ONLY
 
     def get_reducer(self) -> pw.ColumnExpression:
-        # TODO THE COLUMN TYPE CAN BE FOUND WITH table.typehints()["column_name"]
-        return pw.apply(median, pw.reducers.tuple(pw.this[self.column]))
+        return pw.apply_with_type(median, float, pw.reducers.tuple(pw.this[self.column]))

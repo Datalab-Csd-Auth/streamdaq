@@ -23,7 +23,7 @@ class Monotonic(DataQualityMeasure):
                 f"Direction must be 'asc' or 'desc', got {self.direction}"
             )
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             lambda elements: is_monotonic(elements, self.direction, self.strict),
             bool,

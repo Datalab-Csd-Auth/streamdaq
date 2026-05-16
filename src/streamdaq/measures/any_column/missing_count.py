@@ -21,7 +21,7 @@ class MissingCount(DataQualityMeasure):
             return set(self._explicit_missing_values)
         return set(self._explicit_missing_values + self.disguised)
 
-    def get_reducer(self) -> pw.ColumnExpression:
+    def get_expression(self) -> pw.ColumnExpression:
         all_missing_values = self._concatenate_explicit_diguised_values()
         return pw.apply_with_type(
             lambda elements: set_conformance_count(elements, all_missing_values),
