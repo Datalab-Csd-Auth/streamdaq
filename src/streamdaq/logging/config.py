@@ -2,10 +2,15 @@ import logging
 import sys
 from typing import Optional, Union
 
+DEFAULT_LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
+DEFAULT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
 def configure_logging(
     level: Union[int, str] = logging.INFO,
     pathway_level: Optional[Union[int, str]] = logging.WARNING,
-    enable_console: bool = True
+    enable_console: bool = True,
+    log_format: str = DEFAULT_LOG_FORMAT,
+    date_format: str = DEFAULT_DATE_FORMAT
 ) -> None:
     """
     Bootstrap entry point for StreamDaQ logging isolation.
@@ -23,7 +28,7 @@ def configure_logging(
     sd_logger.propagate = False
 
     # Isolate or adjust Pathway execution logs
-    pw_logger = logging.getLogger("pathway")
+    pw_logger = logging.getLogger("pathway_engine")
     if pathway_level is None:
         pw_logger.handlers = [logging.NullHandler()]
         pw_logger.propagate = False
@@ -31,17 +36,16 @@ def configure_logging(
         pw_logger.setLevel(pathway_level)
         pw_logger.propagate = True
 
-    # Apply Console Sinks
-    if enable_console:
-        # Prevent handler accumulation if configure_logging is called multiple times
-        for handler in sd_logger.handlers[:]:
-            if isinstance(handler, logging.StreamHandler):
-                sd_logger.removeHandler(handler)
+    if not enable_console:
+        return
+        
+    # Prevent handler accumulation if configure_logging is called multiple times
+    # Note: Using [:] snapshot copy to prevent skipping elements when mutating the list in-place
+    for handler in sd_logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler):
+            sd_logger.removeHandler(handler)
 
-        console_handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
-            datefmt="%Y-%m-%dT%H:%M:%S"
-        )
-        console_handler.setFormatter(formatter)
-        sd_logger.addHandler(console_handler)
+    console_handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
+    console_handler.setFormatter(formatter)
+    sd_logger.addHandler(console_handler)
