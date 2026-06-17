@@ -5,10 +5,9 @@ Logging module for StreamDaQ v2.
 Handles namespace isolation, root pollution prevention, and structured logging hooks.
 """
 
-from streamdaq.logging.config import configure_logging
-from streamdaq.logging.formatters import JsonFormatter
+from streamdaq.logging.managers import configure_logging
+from streamdaq.logging.handlers import JsonFormatter, LogHook
 from streamdaq.logging.utils import get_logger
-from streamdaq.logging.hooks import LogHook
 
 # Explicitly define the public API for this namespace
 __all__ = [
