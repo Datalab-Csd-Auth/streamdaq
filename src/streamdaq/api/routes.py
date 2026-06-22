@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from streamdaq.api.engine import engine
 from streamdaq.api.models import SessionStatus, TaskConfig
 
 
@@ -59,8 +60,8 @@ async def create_task(task: TaskConfig) -> Dict[str, str]:
     task_id = str(uuid.uuid4())
     _TASKS_STORE[task_id] = task
     
-    # Here, the dynamic engine re-compilation / hot-reload would be triggered.
-    # engine.apply_tasks(_TASKS_STORE.values())
+    # Here, the dynamic engine re-compilation / hot-reload is triggered.
+    engine.apply_tasks(list(_TASKS_STORE.values()))
     
     return {"message": "Task created successfully", "task_id": task_id}
 
@@ -78,4 +79,4 @@ async def delete_task(task_id: str) -> None:
     del _TASKS_STORE[task_id]
     
     # Trigger hot-reload on the backend.
-    # engine.apply_tasks(_TASKS_STORE.values())
+    engine.apply_tasks(list(_TASKS_STORE.values()))
