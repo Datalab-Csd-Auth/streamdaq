@@ -22,7 +22,6 @@ class Task:
     window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
     window: Window | None = None
     windowby_column: str | None = None
-    name: str | None = None
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
 

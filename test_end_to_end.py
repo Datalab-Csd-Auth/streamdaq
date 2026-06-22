@@ -33,6 +33,7 @@ in_range_check = InRange(
 
 task: Task = (
     Task(
+        name="end_to_end_test_task",
         input=get_table,
         output=pw.io.jsonlines.write,
         output_kwargs={"filename": "papari.jsonl"},
