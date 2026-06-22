@@ -8,12 +8,15 @@ INPUT_REGISTRY = {
     "markdown_table": lambda params: lambda **kwargs: pw.debug.table_from_markdown(params["markdown"]),
     "csv": lambda params: lambda **kwargs: pw.io.csv.read(**params),
     "kafka": lambda params: lambda **kwargs: pw.io.kafka.read(**params),
+    "mqtt": lambda params: lambda **kwargs: pw.io.mqtt.read(**params),
 }
 
 OUTPUT_REGISTRY = {
     "jsonlines": pw.io.jsonlines.write,
     "csv": pw.io.csv.write,
     "postgres": pw.io.postgres.write,
+    "mqtt": pw.io.mqtt.write,
+    "kafka": pw.io.kafka.write,
 }
 
 # --- Windows ---

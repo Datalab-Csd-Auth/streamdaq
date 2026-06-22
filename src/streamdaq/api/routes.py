@@ -10,7 +10,6 @@ from streamdaq.api.models import SessionStatus, TaskConfig
 
 router = APIRouter(prefix="/api/v1")
 
-_MOCK_START_TIME = time.time()
 _TASKS_STORE: Dict[str, TaskConfig] = {}
 
 # We need a lazy import to avoid circular dependency
@@ -23,12 +22,10 @@ async def get_session() -> SessionStatus:
     session = _get_session()
     status_str = "running" if session else "stopped"
     active_tasks = len(session.tasks) if session else 0
-    uptime = int(time.time() - _MOCK_START_TIME)
     
     return SessionStatus(
         status=status_str,
         active_tasks_count=active_tasks,
-        uptime_seconds=uptime,
         version="1.0.0"
     )
 
@@ -54,7 +51,14 @@ async def create_task(task_config: TaskConfig) -> Dict[str, str]:
             detail="No active StreamDAQ session is currently mounted."
         )
 
-    task_id = str(uuid.uuid4())
+    task_id = task_config.name
+    
+    if task_id in _TASKS_STORE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Task with name '{task_id}' already exists."
+        )
+
     _TASKS_STORE[task_id] = task_config
     
     # Build the task
