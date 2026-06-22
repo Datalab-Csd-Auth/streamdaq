@@ -1,32 +1,16 @@
 import pathway as pw
 
 from streamdaq.api.models import TaskConfig
-from streamdaq.checks import InRange, WindowDataQualityCheck
-from streamdaq.measures import InRangeCount, Mean
+from streamdaq.api.registries import (
+    INPUT_REGISTRY,
+    INSTANT_CHECK_REGISTRY,
+    MEASURE_REGISTRY,
+    OUTPUT_REGISTRY,
+    WINDOW_REGISTRY,
+)
+from streamdaq.checks import WindowDataQualityCheck
 from streamdaq.sessions.base import Session
 from streamdaq.tasks.base import Task
-
-# Registry dictionaries
-INPUT_REGISTRY = {
-    "markdown_table": lambda params: lambda **kwargs: pw.debug.table_from_markdown(params["markdown"])
-}
-
-OUTPUT_REGISTRY = {
-    "jsonlines": pw.io.jsonlines.write
-}
-
-INSTANT_CHECK_REGISTRY = {
-    "InRange": InRange
-}
-
-MEASURE_REGISTRY = {
-    "Mean": Mean,
-    "InRangeCount": InRangeCount
-}
-
-WINDOW_REGISTRY = {
-    "sliding": pw.temporal.sliding
-}
 
 class EngineManager:
     """
