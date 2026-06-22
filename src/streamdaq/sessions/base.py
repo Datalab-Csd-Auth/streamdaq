@@ -22,5 +22,19 @@ class Session:
     def start(self) -> Self:
         for task in self.tasks:
             # start each task as a separate process - the current (main) process remains unblocked
-            task._start_pw_process()
+            if task._pw_process is None or not task._pw_process.is_alive():
+                task._start_pw_process()
         return self
+
+    def serve_api(self, host: str = "127.0.0.1", port: int = 8000) -> None:
+        import uvicorn
+        from streamdaq.api.app import app, set_active_session
+        
+        # Start the already added tasks (if any)
+        self.start()
+        
+        # Mount this session to the API
+        set_active_session(self)
+        
+        # Block the main thread and run the API
+        uvicorn.run(app, host=host, port=port)
