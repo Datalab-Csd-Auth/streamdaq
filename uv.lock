@@ -4118,9 +4118,11 @@ source = { editable = "." }
 dependencies = [
     { name = "datasketch" },
     { name = "datasketches" },
+    { name = "fastapi" },
     { name = "pathway" },
     { name = "pydantic" },
     { name = "strenum" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -4156,6 +4158,7 @@ test = [
 requires-dist = [
     { name = "datasketch", specifier = "~=1.10.0" },
     { name = "datasketches", specifier = "~=5.2.0" },
+    { name = "fastapi", specifier = ">=0.111.0" },
     { name = "identify", marker = "extra == 'dev'", specifier = ">=2.6.18" },
     { name = "ipykernel", marker = "extra == 'dev'" },
     { name = "ipykernel", marker = "extra == 'docs'" },
@@ -4180,6 +4183,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=7.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.10" },
     { name = "strenum", specifier = "~=0.4.15" },
+    { name = "uvicorn", specifier = ">=0.30.1" },
 ]
 provides-extras = ["dev", "docs", "test"]
 
