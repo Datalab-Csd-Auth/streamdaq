@@ -45,7 +45,7 @@ async def get_task(task_id: str) -> TaskConfig:
         )
     return _TASKS_STORE[task_id]
 
-@router.post("/tasks", status_code=status.HTTP_201_CREATED)
+@router.post("/create_tasks", status_code=status.HTTP_201_CREATED)
 async def create_task(task_config: TaskConfig) -> Dict[str, str]:
     session = _get_session()
     if session is None:
