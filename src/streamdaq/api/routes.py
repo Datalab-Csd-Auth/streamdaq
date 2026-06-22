@@ -1,49 +1,43 @@
 import time
-from typing import Dict, List
 import uuid
+from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
 
-from streamdaq.api.engine import engine
+from streamdaq.api.engine import build_task
 from streamdaq.api.models import SessionStatus, TaskConfig
 
 
 router = APIRouter(prefix="/api/v1")
 
-# In-memory store to simulate the engine state
-# In a real implementation, this state might be synchronized with the Pathway engine manager.
 _MOCK_START_TIME = time.time()
 _TASKS_STORE: Dict[str, TaskConfig] = {}
 
+# We need a lazy import to avoid circular dependency
+def _get_session():
+    from streamdaq.api.app import get_active_session
+    return get_active_session()
 
 @router.get("/session", response_model=SessionStatus)
 async def get_session() -> SessionStatus:
-    """
-    Fetches the current status of the engine and summary metrics.
-    """
+    session = _get_session()
+    status_str = "running" if session else "stopped"
+    active_tasks = len(session.tasks) if session else 0
     uptime = int(time.time() - _MOCK_START_TIME)
+    
     return SessionStatus(
-        status="running",
-        active_tasks_count=len(_TASKS_STORE),
+        status=status_str,
+        active_tasks_count=active_tasks,
         uptime_seconds=uptime,
         version="1.0.0"
     )
 
-
 @router.get("/tasks", response_model=Dict[str, TaskConfig])
 async def list_tasks() -> Dict[str, TaskConfig]:
-    """
-    Returns a list of all currently configured tasks.
-    """
     return _TASKS_STORE
-
 
 @router.get("/tasks/{task_id}", response_model=TaskConfig)
 async def get_task(task_id: str) -> TaskConfig:
-    """
-    Returns the configuration details of a specific task.
-    """
     if task_id not in _TASKS_STORE:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -51,32 +45,49 @@ async def get_task(task_id: str) -> TaskConfig:
         )
     return _TASKS_STORE[task_id]
 
-
 @router.post("/tasks", status_code=status.HTTP_201_CREATED)
-async def create_task(task: TaskConfig) -> Dict[str, str]:
-    """
-    Create a new task in the stream processing session.
-    """
-    task_id = str(uuid.uuid4())
-    _TASKS_STORE[task_id] = task
-    
-    # Here, the dynamic engine re-compilation / hot-reload is triggered.
-    engine.apply_tasks(list(_TASKS_STORE.values()))
-    
-    return {"message": "Task created successfully", "task_id": task_id}
+async def create_task(task_config: TaskConfig) -> Dict[str, str]:
+    session = _get_session()
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No active StreamDAQ session is currently mounted."
+        )
 
+    task_id = str(uuid.uuid4())
+    _TASKS_STORE[task_id] = task_config
+    
+    # Build the task
+    task = build_task(task_config)
+    
+    # Add to the running session
+    session.add_tasks(task)
+    
+    # Since the session is already active, we start the task's isolated process immediately
+    task._start_pw_process()
+    
+    return {"message": "Task created and started successfully", "task_id": task_id}
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(task_id: str) -> None:
-    """
-    Removes a task from the active session.
-    """
+    session = _get_session()
+    
     if task_id not in _TASKS_STORE:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"Task with id {task_id} not found."
         )
-    del _TASKS_STORE[task_id]
     
-    # Trigger hot-reload on the backend.
-    engine.apply_tasks(list(_TASKS_STORE.values()))
+    config = _TASKS_STORE[task_id]
+    
+    # Find the matching task in the session and terminate its process
+    if session:
+        for task in session.tasks:
+            # We match by name since we don't have a task_id inside Task
+            if task.name == config.name and task._pw_process:
+                task._pw_process.terminate()
+                task._pw_process.join()
+                session.tasks.remove(task)
+                break
+
+    del _TASKS_STORE[task_id]
