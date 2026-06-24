@@ -65,6 +65,8 @@ dev = [
 test = [
     "pytest>=9.0",
     "pytest-cov>=7.0",
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
 ]
 docs = [
     "mkdocs-material",
