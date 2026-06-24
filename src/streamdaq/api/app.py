@@ -6,12 +6,15 @@ from streamdaq.api.routes import router
 # Global state to hold the StreamDAQ session
 _ACTIVE_SESSION = None
 
+
 def set_active_session(session):
     global _ACTIVE_SESSION
     _ACTIVE_SESSION = session
 
+
 def get_active_session():
     return _ACTIVE_SESSION
+
 
 def create_app() -> FastAPI:
     """
