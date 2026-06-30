@@ -11,65 +11,23 @@ from streamdaq.api.models import (
     TaskStatus,
     WindowChecksConfig,
 )
+from streamdaq.utils.api import (
+    _get_session,
+    _get_task_for_update,
+    _handle_running_task,
+    _validate_for_start,
+)
 
 router = APIRouter(prefix="/api/v1")
 
-# TODO: Because session has its own (same) tasks list, we might not need this global store. But for now, we will keep it for simplicity.
+# TODO: Because session has its own (same) tasks list, we might not need this global store.
+# But for now, we will keep it for simplicity.
 _TASKS_STORE: dict[str, TaskConfig] = {}
 
 
-# We need a lazy import to avoid circular dependency
-def _get_session():
-    from streamdaq.api.app import get_active_session
-
-    return get_active_session()
-
-
-def _restart_task_placeholder(task_id: str):
-    """Placeholder for dropping the pathway process and starting over."""
-    pass
-
-
-def _get_task_for_update(task_id: str) -> TaskConfig:
-    """Retrieve a task config."""
-    if task_id not in _TASKS_STORE:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
-        )
-    return _TASKS_STORE[task_id]
-
-
-def _handle_running_task(task_id: str, config: TaskConfig):
-    """Handle tasks that are already running by restarting them."""
-    if config.status == TaskStatus.RUNNING:
-        _restart_task_placeholder(task_id)
-
-
-def _validate_for_start(config: TaskConfig) -> list[str]:
-    """Return a list of reasons the task cannot be started yet."""
-    errors = []
-    if config.input is None:
-        errors.append("Input configuration is required.")
-    if config.output is None:
-        errors.append("Output configuration is required.")
-    if not config.windowby_column:
-        errors.append("Windowby column is required.")
-    if config.window_checks_config is None:
-        errors.append("Window configuration is required.")
-
-    has_instant = bool(config.instant_checks)
-    has_window = bool(config.window_checks_config and config.window_checks_config.checks)
-    if not has_instant and not has_window:
-        errors.append("At least one instant check or window check is required.")
-
-    return errors
-
-
-# ─── Session ────────────────────────────────────────────────────────────────
-
-
+# Session
 @router.get("/session", response_model=SessionStatus)
-async def get_session() -> SessionStatus:
+async def get_session_status() -> SessionStatus:
     session = _get_session()
     status_str = "running" if session else "stopped"
     active_tasks = len(session.tasks) if session else 0
@@ -77,9 +35,7 @@ async def get_session() -> SessionStatus:
     return SessionStatus(status=status_str, active_tasks_count=active_tasks, version="1.0.0")
 
 
-# ─── Task CRUD ──────────────────────────────────────────────────────────────
-
-
+# Task CRUD
 @router.get("/tasks", response_model=dict[str, TaskConfig])
 async def list_tasks() -> dict[str, TaskConfig]:
     return _TASKS_STORE
@@ -127,7 +83,13 @@ async def create_task(task_config: TaskConfig) -> dict[str, str]:
     session.add_tasks(task)
 
     # Since the session is already active, we start the task's isolated process immediately
-    task._start_pw_process()
+    try:
+        task._start_pw_process()
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"message": "Task created and started successfully", "task_id": task_id}
 
@@ -145,20 +107,19 @@ async def delete_task(task_id: str) -> None:
 
     # Find the matching task in the session and terminate its process
     if session:
+        from streamdaq.orchestration.utils import gracefully_kill
+
         for task in session.tasks:
             # We match by name since we don't have a task_id inside Task
             if task.name == config.name and task._pw_process:
-                task._pw_process.terminate()
-                task._pw_process.join()
+                gracefully_kill(task._pw_process, timeout_seconds=5)
                 session.tasks.remove(task)
                 break
 
     del _TASKS_STORE[task_id]
 
 
-# ─── Draft task builder endpoints ───────────────────────────────────────────
-
-
+# Draft task builder endpoints
 @router.post("/tasks/{task_id}/init", status_code=status.HTTP_201_CREATED)
 async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[str, str]:
     """Create or dynamically update a task."""
@@ -225,7 +186,7 @@ async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[s
 @router.post("/tasks/{task_id}/input")
 async def set_input(task_id: str, input_config: InputConfig):
     """Set or replace the input configuration on a task."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     config.input = input_config
     _handle_running_task(task_id, config)
     return {"message": "Input configuration set.", "task_id": task_id}
@@ -234,7 +195,7 @@ async def set_input(task_id: str, input_config: InputConfig):
 @router.post("/tasks/{task_id}/output")
 async def set_output(task_id: str, output_config: OutputConfig):
     """Set or replace the output configuration on a task."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     config.output = output_config
     _handle_running_task(task_id, config)
     return {"message": "Output configuration set.", "task_id": task_id}
@@ -243,7 +204,7 @@ async def set_output(task_id: str, output_config: OutputConfig):
 @router.post("/tasks/{task_id}/instant-checks")
 async def add_instant_check(task_id: str, check: InstantCheckConfig):
     """Append an instant check to a task."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     config.instant_checks.append(check)
     _handle_running_task(task_id, config)
     return {"message": f"Instant check '{check.name}' added.", "task_id": task_id}
@@ -256,7 +217,7 @@ async def add_window_checks(task_id: str, body: WindowChecksConfig):
     The window configuration is set (or replaced) and the checks are appended
     to any existing window checks.
     """
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     if config.window_checks_config is None:
         config.window_checks_config = body
     else:
@@ -270,7 +231,7 @@ async def add_window_checks(task_id: str, body: WindowChecksConfig):
 @router.delete("/tasks/{task_id}/instant-checks/{check_name}", status_code=status.HTTP_200_OK)
 async def remove_instant_check(task_id: str, check_name: str):
     """Remove an instant check from a task by name."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     original_count = len(config.instant_checks)
     config.instant_checks = [c for c in config.instant_checks if c.name != check_name]
     if len(config.instant_checks) == original_count:
@@ -284,7 +245,7 @@ async def remove_instant_check(task_id: str, check_name: str):
 @router.delete("/tasks/{task_id}/window-checks/{check_name}", status_code=status.HTTP_200_OK)
 async def remove_window_check(task_id: str, check_name: str):
     """Remove a window check from a task by name."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
     if config.window_checks_config is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Window check '{check_name}' not found."
@@ -301,10 +262,22 @@ async def remove_window_check(task_id: str, check_name: str):
     return {"message": f"Window check '{check_name}' removed.", "task_id": task_id}
 
 
+@router.delete("/tasks/{task_id}/window-checks", status_code=status.HTTP_200_OK)
+async def remove_window_checks(task_id: str):
+    config = _get_task_for_update(task_id, _TASKS_STORE)
+    if config.window_checks_config is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Window checks not found."
+        )
+    config.window_checks_config = None
+    _handle_running_task(task_id, config)
+    return {"message": "Window checks removed.", "task_id": task_id}
+
+
 @router.post("/tasks/{task_id}/start")
 async def start_task(task_id: str) -> dict[str, str]:
     """Validate completeness and start a task."""
-    config = _get_task_for_update(task_id)
+    config = _get_task_for_update(task_id, _TASKS_STORE)
 
     errors = _validate_for_start(config)
     if errors:
@@ -327,3 +300,23 @@ async def start_task(task_id: str) -> dict[str, str]:
     config.status = TaskStatus.RUNNING
 
     return {"message": "Task started successfully.", "task_id": task_id}
+
+
+@router.get("/config/options")
+async def get_config_options() -> dict[str, list[str]]:
+    """Return available options for UI dropdowns."""
+    from streamdaq.api.registries import (
+        INPUT_REGISTRY,
+        INSTANT_CHECK_REGISTRY,
+        MEASURE_REGISTRY,
+        OUTPUT_REGISTRY,
+        WINDOW_REGISTRY,
+    )
+
+    return {
+        "inputs": list(INPUT_REGISTRY.keys()),
+        "outputs": list(OUTPUT_REGISTRY.keys()),
+        "windows": list(WINDOW_REGISTRY.keys()),
+        "instant_checks": list(INSTANT_CHECK_REGISTRY.keys()),
+        "measures": list(MEASURE_REGISTRY.keys()),
+    }

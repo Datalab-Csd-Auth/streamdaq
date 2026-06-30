@@ -410,7 +410,7 @@ def test_delete_draft():
 
 @patch("streamdaq.api.routes.build_task")
 @patch("streamdaq.api.routes._get_session")
-@patch("streamdaq.api.routes._restart_task_placeholder")
+@patch("streamdaq.api.routes._handle_running_task")
 def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
     """End-to-end: create → input → output → instant check → window checks → start."""
     mock_session = MagicMock()
@@ -457,7 +457,7 @@ def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
     # 7. Restart placeholder trigger
     resp = client.post("/api/v1/tasks/e2e-task/input", json=_sample_input())
     assert resp.status_code == 200
-    mock_restart.assert_called_with("e2e-task")
+    mock_restart.assert_called_with("e2e-task", routes._TASKS_STORE["e2e-task"])
 
     # Verify final state
     config = routes._TASKS_STORE["e2e-task"]
