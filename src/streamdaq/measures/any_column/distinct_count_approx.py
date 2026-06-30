@@ -6,6 +6,7 @@ import pathway as pw
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.reducers.distinct_count_approx import distinct_count_approx_reducer
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -18,7 +19,9 @@ class DistinctCountApprox(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda count_as_float: int(count_as_float),  # datasketch returns float by default
+            Lambda(
+                lambda count_as_float: int(count_as_float)
+            ),  # datasketch returns float by default
             int,
             pw.this[self._get_distinct_count_approx_reducer_internal_name()],
         )

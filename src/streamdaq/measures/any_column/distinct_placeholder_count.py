@@ -6,6 +6,7 @@ import pathway as pw
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -16,7 +17,7 @@ class DistinctPlaceholderCount(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda elements: len(set(elements).intersection(self.placeholders)),
+            Lambda(lambda elements: len(set(elements).intersection(self.placeholders))),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )

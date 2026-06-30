@@ -7,6 +7,7 @@ from streamdaq.computations.generic import is_monotonic
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -25,7 +26,7 @@ class Monotonic(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda elements: is_monotonic(elements, self.direction, self.strict),
+            Lambda(lambda elements: is_monotonic(elements, self.direction, self.strict)),
             bool,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )

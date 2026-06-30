@@ -1,20 +1,22 @@
 from collections.abc import Callable
 from typing import Any
 
+from streamdaq.utils.picklable import Lambda
+
 
 class LambdaFactory:
     @classmethod
     def get_nth_list_element(cls, n: int, dtype: type | None = None) -> Callable:
         if not dtype:
-            return lambda elements: elements[n]
+            return Lambda(lambda elements: elements[n])
 
         dtype_to_lambda: dict[type, Callable] = {
-            bool: lambda elements: elements[n].as_bool(),
-            dict: lambda elements: elements[n].as_dict(),
-            float: lambda elements: elements[n].as_float(),
-            int: lambda elements: elements[n].as_int(),
-            list: lambda elements: elements[n].as_list(),
-            str: lambda elements: elements[n].as_str(),
+            bool: Lambda(lambda elements: elements[n].as_bool()),
+            dict: Lambda(lambda elements: elements[n].as_dict()),
+            float: Lambda(lambda elements: elements[n].as_float()),
+            int: Lambda(lambda elements: elements[n].as_int()),
+            list: Lambda(lambda elements: elements[n].as_list()),
+            str: Lambda(lambda elements: elements[n].as_str()),
         }
         if dtype not in dtype_to_lambda:
             raise NotImplementedError(
@@ -26,15 +28,15 @@ class LambdaFactory:
     @classmethod
     def get_list_elements_from_n_to_end(cls, n: int, dtype: type | None = None) -> Callable:
         if not dtype:
-            return lambda elements: list(elements[n:])
+            return Lambda(lambda elements: list(elements[n:]))
 
         dtype_to_lambda: dict[type, Callable] = {
-            bool: lambda element: element.as_bool(),
-            dict: lambda element: element.as_dict(),
-            float: lambda element: element.as_float(),
-            int: lambda element: element.as_int(),
-            list: lambda element: element.as_list(),
-            str: lambda element: element.as_str(),
+            bool: Lambda(lambda element: element.as_bool()),
+            dict: Lambda(lambda element: element.as_dict()),
+            float: Lambda(lambda element: element.as_float()),
+            int: Lambda(lambda element: element.as_int()),
+            list: Lambda(lambda element: element.as_list()),
+            str: Lambda(lambda element: element.as_str()),
         }
         if dtype not in dtype_to_lambda:
             raise NotImplementedError(
@@ -42,15 +44,15 @@ class LambdaFactory:
                 f"Available dtypes: {dtype_to_lambda.keys()}."
             )
         converter_lambda = dtype_to_lambda[dtype]
-        return lambda elements: [converter_lambda(element) for element in elements[n:]]
+        return Lambda(lambda elements: [converter_lambda(element) for element in elements[n:]])
 
     @classmethod
     def check_nth_list_element_equals_value(
         cls, n: int, value: Any, dtype: type | None = None
     ) -> Callable[[list], bool]:
         getter_lambda = cls.get_nth_list_element(n, dtype)
-        return lambda elements: getter_lambda(elements) == value
+        return Lambda(lambda elements: getter_lambda(elements) == value)
 
     @classmethod
     def check_int_has_exact_nof_digits(cls, nof_digits: int) -> Callable:
-        return lambda int_value: len(str(int_value)) == nof_digits
+        return Lambda(lambda int_value: len(str(int_value)) == nof_digits)

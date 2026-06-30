@@ -9,6 +9,7 @@ from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import RoundableDataQualityMeasure
 from streamdaq.reducers.distinct_count_approx import distinct_count_approx_reducer
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -29,7 +30,7 @@ class DistinctFractionApprox(RoundableDataQualityMeasure):
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
-                lambda distinct_count, total_count: fraction(distinct_count, total_count),
+                Lambda(lambda distinct_count, total_count: fraction(distinct_count, total_count)),
                 float,
                 pw.this[self._get_distinct_count_approx_reducer_internal_name()],  # distinct count
                 pw.this[Count._get_internal_shared_column_name(self.column)],  # total_count
