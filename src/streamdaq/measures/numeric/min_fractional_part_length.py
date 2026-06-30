@@ -7,6 +7,7 @@ from streamdaq.computations.numeric import fractional_part_digit_count
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -16,7 +17,7 @@ class MinFractionalPartLength(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda elements: min(fractional_part_digit_count(elements)),
+            Lambda(lambda elements: min(fractional_part_digit_count(elements))),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )

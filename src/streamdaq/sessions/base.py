@@ -4,11 +4,12 @@ from typing import Self
 import pathway as pw
 
 from streamdaq.tasks.base import Task
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
 class Session:
-    tasks: list[Task] = field(default_factory=lambda: [])
+    tasks: list[Task] = field(default_factory=Lambda(lambda: []))
     name: str | None = None
 
     def __post_init__(self):
@@ -28,13 +29,14 @@ class Session:
 
     def serve_api(self, host: str = "127.0.0.1", port: int = 8000) -> None:
         import uvicorn
+
         from streamdaq.api.app import app, set_active_session
-        
+
         # Start the already added tasks (if any)
         self.start()
-        
+
         # Mount this session to the API
         set_active_session(self)
-        
+
         # Block the main thread and run the API
         uvicorn.run(app, host=host, port=port)

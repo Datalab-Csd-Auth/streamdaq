@@ -7,6 +7,7 @@ from streamdaq.computations.numeric import range_conformance_count
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -20,8 +21,10 @@ class InRangeCount(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda elements: range_conformance_count(
-                elements, self.low, self.high, self.inclusive_low, self.inclusive_high
+            Lambda(
+                lambda elements: range_conformance_count(
+                    elements, self.low, self.high, self.inclusive_low, self.inclusive_high
+                )
             ),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],

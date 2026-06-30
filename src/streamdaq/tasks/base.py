@@ -10,6 +10,7 @@ from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.tasks.task_output import TaskOutput
+from streamdaq.utils.picklable import Lambda
 from streamdaq.windows.base import Window
 
 
@@ -18,12 +19,12 @@ class Task:
     input: Callable[[Any], pw.Table]
     output: Callable[[Any], None] | TaskOutput
     name: str | None = None
-    instant_checks: list[InstantDataQualityCheck] = field(default_factory=lambda: [])
-    window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
+    instant_checks: list[InstantDataQualityCheck] = field(default_factory=Lambda(lambda: []))
+    window_checks: list[WindowDataQualityCheck] = field(default_factory=Lambda(lambda: []))
     window: Window | None = None
     windowby_column: str | None = None
-    input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
-    output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
+    input_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
+    output_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
 
     def __post_init__(self):
         self.instant_table: pw.Table | None = None
@@ -59,10 +60,10 @@ class Task:
         return self
 
     def _start_pw_process(self) -> multiprocessing.Process:
-        self._pw_process = multiprocessing.Process(target=self.__pw_task_worker_function)
+        self._pw_process = multiprocessing.Process(target=self._pw_task_worker_function)
         self._pw_process.start()
 
-    def __pw_task_worker_function(self):
+    def _pw_task_worker_function(self):
         table = self.input(**self.input_kwargs)
 
         instant_table, window_table = self.__construct_pw_dag(table)

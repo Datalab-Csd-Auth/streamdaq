@@ -1,5 +1,7 @@
 from collections.abc import Callable
 
+from streamdaq.utils.picklable import Lambda
+
 
 def _parse_range_expression(expr: str) -> tuple[str, float, float] | None:
     """
@@ -50,14 +52,14 @@ def _create_comparison_lambda(operator: str, threshold: float) -> Callable[[floa
         Callable[[float], bool]: Lambda function implementing the comparison
     """
     operator_map = {
-        ">=": lambda x: x >= threshold,
-        "<=": lambda x: x <= threshold,
-        "==": lambda x: x == threshold,
-        ">": lambda x: x > threshold,
-        "<": lambda x: x < threshold,
+        ">=": Lambda(lambda x: x >= threshold),
+        "<=": Lambda(lambda x: x <= threshold),
+        "==": Lambda(lambda x: x == threshold),
+        ">": Lambda(lambda x: x > threshold),
+        "<": Lambda(lambda x: x < threshold),
     }
 
-    return operator_map.get(operator, lambda x: True)
+    return operator_map.get(operator, Lambda(lambda x: True))
 
 
 def _create_range_lambda(brackets: str, lower: float, upper: float) -> Callable[[float], bool]:
@@ -79,7 +81,7 @@ def _create_range_lambda(brackets: str, lower: float, upper: float) -> Callable[
         right_compare = x <= upper if right_bracket == "]" else x < upper
         return left_compare and right_compare
 
-    return range_check
+    return Lambda(range_check)
 
 
 def _parse_comparison_operator(expr: str) -> tuple[str, float] | None:
