@@ -1,16 +1,18 @@
+import functools
+
 import pathway as pw
 
 from streamdaq import checks, measures
-
-# --- Inputs & Outputs ---
+from streamdaq.utils.api import build_python_connector_input
 
 INPUT_REGISTRY = {
-    "markdown_table": lambda params: (
-        lambda **kwargs: pw.debug.table_from_markdown(params["markdown"])
+    "markdown_table": lambda params: functools.partial(
+        pw.debug.table_from_markdown, params["markdown"]
     ),
-    "csv": lambda params: lambda **kwargs: pw.io.csv.read(**params),
-    "kafka": lambda params: lambda **kwargs: pw.io.kafka.read(**params),
-    "mqtt": lambda params: lambda **kwargs: pw.io.mqtt.read(**params),
+    "python_connector": build_python_connector_input,
+    "csv": lambda params: functools.partial(pw.io.csv.read, **params),
+    "kafka": lambda params: functools.partial(pw.io.kafka.read, **params),
+    "mqtt": lambda params: functools.partial(pw.io.mqtt.read, **params),
 }
 
 OUTPUT_REGISTRY = {
