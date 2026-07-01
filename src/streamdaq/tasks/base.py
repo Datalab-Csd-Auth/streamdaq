@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Self
@@ -83,6 +84,15 @@ class Task:
             ...
             # TODO PROBABLY WE NEED TO CHECK THAT THE OUTPUT IS VALID IN THE POST INIT
             # so that it is earlier than here
+
+        # --- STREAMDAQ INTERNAL MONITORING (TEE PATTERN) ---
+        os.makedirs(".streamdaq_monitoring", exist_ok=True)
+        task_id = self.name or "unnamed"
+        if instant_table:
+            pw.io.jsonlines.write(instant_table, f".streamdaq_monitoring/{task_id}_instant.jsonl")
+        if window_table:
+            pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
+
         pw.run()
 
     def __construct_pw_dag(self, table: pw.Table) -> pw.Table:

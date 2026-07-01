@@ -1,4 +1,4 @@
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any, Literal
 
 from fastapi import HTTPException, status
@@ -38,7 +38,8 @@ class InputConfig(BaseModel):
             )
         return v
 
-    # TODO: Add a model_validator to validate the params against the input class's expected parameters for each input type.
+    # TODO: Add a model_validator to validate the params against the input class's
+    # expected parameters for each input type.
 
 
 class OutputConfig(BaseModel):
@@ -57,7 +58,8 @@ class OutputConfig(BaseModel):
             )
         return v
 
-    # TODO: Add a model_validator to validate the params against the output class's expected parameters for each output type.
+    # TODO: Add a model_validator to validate the params against the output class's
+    # expected parameters for each output type.
 
 
 class InstantCheckConfig(BaseModel):
@@ -175,7 +177,7 @@ class TaskStatus(StrEnum):
 
     DRAFT = "draft"
     RUNNING = "running"
-    STOPPED = "stopped"
+    FINISHED = "finished"
     ERROR = "error"
 
 

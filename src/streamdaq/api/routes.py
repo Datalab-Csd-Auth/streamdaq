@@ -1,3 +1,6 @@
+import json
+import os
+
 from fastapi import APIRouter, HTTPException, status
 
 from streamdaq.api.engine import build_task
@@ -35,19 +38,54 @@ async def get_session_status() -> SessionStatus:
     return SessionStatus(status=status_str, active_tasks_count=active_tasks, version="1.0.0")
 
 
+def _sync_task_statuses():
+    session = _get_session()
+    if session is None:
+        return
+    for task_id, config in _TASKS_STORE.items():
+        if config.status == TaskStatus.RUNNING:
+            for task in session.tasks:
+                if task.name == config.name:
+                    if task._pw_process is not None and not task._pw_process.is_alive():
+                        config.status = TaskStatus.FINISHED
+                    break
+
+
 # Task CRUD
 @router.get("/tasks", response_model=dict[str, TaskConfig])
 async def list_tasks() -> dict[str, TaskConfig]:
+    _sync_task_statuses()
     return _TASKS_STORE
 
 
 @router.get("/tasks/{task_id}", response_model=TaskConfig)
 async def get_task(task_id: str) -> TaskConfig:
+    _sync_task_statuses()
     if task_id not in _TASKS_STORE:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not found."
         )
     return _TASKS_STORE[task_id]
+
+
+@router.get("/tasks/{task_id}/monitoring")
+async def get_task_monitoring(
+    task_id: str, table_type: str = "instant", lines: int = 50
+) -> list[dict]:
+    """Reads the latest monitored output for a task."""
+    filepath = f".streamdaq_monitoring/{task_id}_{table_type}.jsonl"
+    if not os.path.exists(filepath):
+        return []
+
+    data = []
+    with open(filepath) as f:
+        all_lines = f.readlines()
+        for line in all_lines[-lines:]:
+            try:
+                data.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return data
 
 
 @router.post("/bulk_create", status_code=status.HTTP_201_CREATED)
