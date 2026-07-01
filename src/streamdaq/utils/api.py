@@ -14,14 +14,19 @@ _DTYPE_MAP: dict[str, type] = {
 
 
 class _ConnectorInputCallable:
-    def __init__(self, cls, schema, connector_params):
+    def __init__(self, cls, schema_params, connector_params):
         self.cls = cls
-        self.schema = schema
+        self.schema_params = schema_params
         self.connector_params = connector_params
 
     def __call__(self, **kwargs) -> pw.Table:
+        columns = {
+            col: pw.column_definition(dtype=_DTYPE_MAP[dtype_str])
+            for col, dtype_str in self.schema_params.items()
+        }
+        schema = pw.schema_builder(columns)
         subject = self.cls(**self.connector_params)
-        return pw.io.python.read(subject, schema=self.schema)
+        return pw.io.python.read(subject, schema=schema)
 
 
 def build_python_connector_input(params: dict[str, Any]):
@@ -36,15 +41,10 @@ def build_python_connector_input(params: dict[str, Any]):
     mod = importlib.import_module(params["module"])
     cls = getattr(mod, params["class_name"])
 
-    # Build Pathway schema from the type-string mapping
-    columns = {
-        col: pw.column_definition(dtype=_DTYPE_MAP[dtype_str])
-        for col, dtype_str in params["schema"].items()
-    }
-    schema = pw.schema_builder(columns)
+    schema_params = params["schema"]
     connector_params: dict = params.get("connector_params", {})
 
-    return _ConnectorInputCallable(cls, schema, connector_params)
+    return _ConnectorInputCallable(cls, schema_params, connector_params)
 
 
 # --- Route helper functions ---
