@@ -2,6 +2,7 @@ import multiprocessing
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Self
 
 import pathway as pw
@@ -78,8 +79,11 @@ class Task:
             if instant_table:
                 self.output(instant_table, **self.output_kwargs)
             if window_table:
-                temporary_kwargs = {"filename": "papari_window.jsonl"}  ## TODO remove
-                self.output(window_table, **temporary_kwargs)
+                output_name = self.output_kwargs.get("filename", "output.jsonl")
+                p = Path(output_name)
+                window_filename = str(p.parent / f"{p.stem}_window{p.suffix}")
+                window_kwargs = {**self.output_kwargs, "filename": window_filename}
+                self.output(window_table, **window_kwargs)
         else:
             ...
             # TODO PROBABLY WE NEED TO CHECK THAT THE OUTPUT IS VALID IN THE POST INIT
