@@ -145,8 +145,8 @@ class MeasureConfig(BaseModel):
 class WindowCheckConfig(BaseModel):
     name: str = Field(..., description="Human-readable name for the window check.")
     measure: MeasureConfig
-    must_be: str = Field(
-        ..., description="Condition that the measure must satisfy (e.g., '[1, 4]', '>=2')."
+    must_be: str | None = Field(
+        default=None, description="Condition that the measure must satisfy (e.g., '[1, 4]', '>=2')."
     )
 
     # TODO: Add a model_validator to validate the must_be condition.

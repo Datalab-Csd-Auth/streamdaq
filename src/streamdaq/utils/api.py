@@ -1,8 +1,11 @@
+import functools
 import importlib
 from typing import Any
 
 import pathway as pw
 from fastapi import HTTPException, status
+
+from streamdaq.utils.picklable import Lambda
 
 _DTYPE_MAP: dict[str, type] = {
     "int": int,
@@ -45,6 +48,66 @@ def build_python_connector_input(params: dict[str, Any]):
     connector_params: dict = params.get("connector_params", {})
 
     return _ConnectorInputCallable(cls, schema_params, connector_params)
+
+
+class _EVBMockInputCallable:
+    def __init__(self, schema_params, connector_params):
+        self.schema_params = schema_params
+        self.connector_params = connector_params
+
+    def __call__(self, **kwargs) -> pw.Table:
+        from streamdaq.schema.evb.definitions import EVBSchema
+        from streamdaq.schema.evb.mock_generator import EVBMockStream
+        from streamdaq.schema.evb.wrangling import convert_raw_evb_to_native_format
+
+        # Construct EVBMockStream
+        subject = EVBMockStream(**self.connector_params)
+
+        # Read raw stream using EVBSchema
+        raw_table = pw.io.python.read(subject, schema=EVBSchema)
+
+        # Build native schema: tuple[tuple[str, type]]
+        native_evb_schema = tuple(
+            (col_name, _DTYPE_MAP[dtype_str]) for col_name, dtype_str in self.schema_params.items()
+        )
+
+        return convert_raw_evb_to_native_format(raw_table, native_evb_schema)
+
+
+def build_evb_mock_input(params: dict[str, Any]):
+    """Specific input factory for EVBMockStream."""
+    schema_params = params.get("schema", {})
+    connector_params = params.get("connector_params", {})
+    return _EVBMockInputCallable(schema_params, connector_params)
+
+
+def build_csv_input(params: dict[str, Any]):
+    """Stream via ``pw.io.csv.read``; static via ``pw.io.fs.read``.
+
+    Expected *params* keys:
+        path (str):  Path to the CSV file or directory.
+        mode (str):  ``"static"`` or ``"streaming"`` (default ``"streaming"``).
+    """
+    mode = params.get("mode", "streaming")
+    clean = {k: v for k, v in params.items() if k != "mode"}
+    if mode == "static":
+        return functools.partial(pw.io.fs.read, format="csv", mode="static", **clean)
+    return functools.partial(pw.io.csv.read, **clean)
+
+
+def build_parquet_input(params: dict[str, Any]):
+    """Read a parquet file via pandas and convert to a Pathway table.
+
+    Pathway has no native parquet connector, so pandas is used as a bridge.
+    The ``mode`` param is accepted for API consistency but parquet is always static.
+
+    Expected *params* keys:
+        path (str):  Path to the parquet file.
+    """
+    import pandas as pd
+
+    path = params["path"]
+    return Lambda(lambda: pw.debug.table_from_pandas(pd.read_parquet(path)))
 
 
 # --- Route helper functions ---

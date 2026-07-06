@@ -13,11 +13,11 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class WindowDataQualityCheck(DataQualityCheck):
     measure: DataQualityMeasure
-    must_be: Callable[[Any], bool] | str
+    must_be: Callable[[Any], bool] | str | None = None
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
 
     def __post_init__(self):
-        if isinstance(self.must_be, Callable):
+        if self.must_be is None or isinstance(self.must_be, Callable):
             return
 
         self.must_be = string_to_callable(str(self.must_be))
@@ -36,5 +36,7 @@ class WindowDataQualityCheck(DataQualityCheck):
     def get_measurement_expression(self) -> pw.ColumnExpression | None:
         return self.measure.get_expression()
 
-    def get_assessment_expression(self) -> pw.ColumnExpression:
+    def get_assessment_expression(self) -> pw.ColumnExpression | None:
+        if self.must_be is None:
+            return None
         return pw.apply_with_type(self.must_be, bool, pw.this[self.name])
