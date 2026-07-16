@@ -37,7 +37,7 @@ def test_create_task_invalid_measure_in_window_checks():
             ],
         },
     }
-    response = client.post("/api/v1/bulk_create", json=payload)
+    response = client.post("/api/v1/bulk_create", json=[payload])
     assert response.status_code == 400
     assert "Invalid params for InRangeCount" in response.json()["detail"]
 
@@ -55,7 +55,7 @@ def test_create_task_invalid_instant_check():
             }
         ],
     }
-    response = client.post("/api/v1/bulk_create", json=payload)
+    response = client.post("/api/v1/bulk_create", json=[payload])
     assert response.status_code == 400
     assert "Invalid params for InRange" in response.json()["detail"]
 
@@ -68,8 +68,8 @@ def test_create_task_valid(mock_get_session, mock_build_task):
     mock_task = MagicMock()
     mock_build_task.return_value = mock_task
 
-    payload = {
-        "name": "Valid Task",
+    payload1 = {
+        "name": "Valid Task 1",
         "windowby_column": "age",
         "window_checks_config": {"window": {"type": "sliding", "params": {}}, "checks": []},
         "input": {"type": "kafka", "params": {}},
@@ -82,11 +82,28 @@ def test_create_task_valid(mock_get_session, mock_build_task):
             }
         ],
     }
-    response = client.post("/api/v1/bulk_create", json=payload)
-    assert response.status_code == 201
-    assert response.json()["task_id"] == "Valid Task"
-    assert "Valid Task" in routes._TASKS_STORE
 
-    mock_build_task.assert_called_once()
-    mock_session.add_tasks.assert_called_once_with(mock_task)
-    mock_task._start_pw_process.assert_called_once()
+    payload2 = {
+        "name": "Valid Task 2",
+        "windowby_column": "salary",
+        "window_checks_config": {"window": {"type": "tumbling", "params": {}}, "checks": []},
+        "input": {"type": "kafka", "params": {}},
+        "output": {"type": "jsonlines", "params": {}},
+        "instant_checks": [
+            {
+                "name": "test_instant2",
+                "check_class": "InRange",
+                "params": {"column": "salary", "low": 10, "high": 500},
+            }
+        ],
+    }
+
+    response = client.post("/api/v1/bulk_create", json=[payload1, payload2])
+    assert response.status_code == 201
+    assert response.json()["task_ids"] == ["Valid Task 1", "Valid Task 2"]
+    assert "Valid Task 1" in routes._TASKS_STORE
+    assert "Valid Task 2" in routes._TASKS_STORE
+
+    assert mock_build_task.call_count == 2
+    assert mock_session.add_tasks.call_count == 2
+    assert mock_task._start_pw_process.call_count == 2

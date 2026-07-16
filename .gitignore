@@ -1,5 +1,6 @@
 # Local testing utilities (not shipped)
 testing/
+start_api_dev.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -213,3 +214,6 @@ __marimo__/
 # Docs
 docs/
 serve_docs.sh
+mkdocs.yml
+
+Dockerfile

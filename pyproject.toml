@@ -41,6 +41,7 @@ dependencies = [
   "datasketches~=5.2.0",
   "fastapi>=0.111.0",
   "uvicorn>=0.30.1",
+  "dill>=0.3.8",
 ]
 
 [project.urls]
@@ -75,6 +76,7 @@ docs = [
     "mkdocs-glightbox",
     "mkdocs-jupyter",
     "ipykernel",
+    "mkdocs-macros-plugin",
 ]
 
 [tool.hatch.version]

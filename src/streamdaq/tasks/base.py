@@ -13,6 +13,7 @@ from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.tasks.task_output import TaskOutput
 from streamdaq.utils.picklable import Lambda
+from streamdaq.utils.ui import _is_ui_up
 from streamdaq.windows.base import Window
 
 
@@ -90,12 +91,15 @@ class Task:
             # so that it is earlier than here
 
         # --- STREAMDAQ INTERNAL MONITORING (TEE PATTERN) ---
-        os.makedirs(".streamdaq_monitoring", exist_ok=True)
-        task_id = self.name or "unnamed"
-        if instant_table:
-            pw.io.jsonlines.write(instant_table, f".streamdaq_monitoring/{task_id}_instant.jsonl")
-        if window_table:
-            pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
+        if _is_ui_up():
+            os.makedirs(".streamdaq_monitoring", exist_ok=True)
+            task_id = self.name or "unnamed"
+            if instant_table:
+                pw.io.jsonlines.write(
+                    instant_table, f".streamdaq_monitoring/{task_id}_instant.jsonl"
+                )
+            if window_table:
+                pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
 
         pw.run()
 

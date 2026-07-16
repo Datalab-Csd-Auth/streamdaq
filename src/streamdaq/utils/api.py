@@ -81,6 +81,51 @@ def build_evb_mock_input(params: dict[str, Any]):
     return _EVBMockInputCallable(schema_params, connector_params)
 
 
+class _MQTT_EVBInputCallable:
+    def __init__(self, schema_params, connector_params):
+        self.schema_params = schema_params
+        self.connector_params = connector_params
+
+    def __call__(self, **kwargs) -> pw.Table:
+        import uuid
+
+        from streamdaq.schema.evb.definitions import EVBSchema
+        from streamdaq.schema.evb.wrangling import convert_raw_evb_to_native_format
+
+        base_uri = self.connector_params.get("uri")
+        topic = self.connector_params.get("topic")
+
+        # Determine if we need to append with ? or &
+        sep = "&" if "?" in base_uri else "?"
+
+        def get_raw_mqtt_table():
+            client_id = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
+            full_uri = f"{base_uri}{sep}client_id={client_id}"
+            return pw.io.mqtt.read(uri=full_uri, topic=topic, format="json", schema=EVBSchema)
+
+        if not self.schema_params:
+            from streamdaq.schema.evb import discover_native_evb_schema
+
+            native_evb_schema = discover_native_evb_schema(
+                get_table_function=get_raw_mqtt_table, timeout_seconds=20
+            )
+        else:
+            native_evb_schema = tuple(
+                (col_name, _DTYPE_MAP[dtype_str])
+                for col_name, dtype_str in self.schema_params.items()
+            )
+
+        raw_table = get_raw_mqtt_table()
+        return convert_raw_evb_to_native_format(raw_table, native_evb_schema)
+
+
+def build_mqtt_evb_input(params: dict[str, Any]):
+    """Specific input factory for parsing EVB over MQTT."""
+    schema_params = params.get("schema", {})
+    connector_params = params.get("connector_params", {})
+    return _MQTT_EVBInputCallable(schema_params, connector_params)
+
+
 def build_csv_input(params: dict[str, Any]):
     """Stream via ``pw.io.csv.read``; static via ``pw.io.fs.read``.
 
