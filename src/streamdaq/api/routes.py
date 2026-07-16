@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -89,7 +90,7 @@ async def get_task_monitoring(
 
 
 @router.post("/bulk_create", status_code=status.HTTP_201_CREATED)
-async def create_task(task_config: TaskConfig) -> dict[str, str]:
+async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
     session = _get_session()
     if session is None:
         raise HTTPException(
@@ -99,37 +100,46 @@ async def create_task(task_config: TaskConfig) -> dict[str, str]:
 
     # Since input/output are now optional on the model, enforce them here for
     # the all-in-one creation flow.
-    errors = _validate_for_start(task_config)
-    if errors:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors)
+    for task_config in task_configs:
+        errors = _validate_for_start(task_config)
+        if errors:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors)
 
-    task_id = task_config.name
+        task_id = task_config.name
 
-    if task_id in _TASKS_STORE:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Task with name '{task_id}' already exists.",
-        )
+        if task_id in _TASKS_STORE:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Task with name '{task_id}' already exists.",
+            )
 
-    task_config.status = TaskStatus.RUNNING
-    _TASKS_STORE[task_id] = task_config
+    task_ids = []
+    for task_config in task_configs:
+        task_id = task_config.name
+        task_config.status = TaskStatus.RUNNING
+        _TASKS_STORE[task_id] = task_config
 
-    # Build the task
-    task = build_task(task_config)
+        # Build the task
+        task = build_task(task_config)
 
-    # Add to the running session
-    session.add_tasks(task)
+        # Add to the running session
+        session.add_tasks(task)
 
-    # Since the session is already active, we start the task's isolated process immediately
-    try:
-        task._start_pw_process()
-    except Exception as e:
-        import traceback
+        # Since the session is already active, we start the task's isolated process immediately
+        try:
+            task._start_pw_process()
+        except Exception as e:
+            import traceback
 
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=str(e))
 
-    return {"message": "Task created and started successfully", "task_id": task_id}
+        task_ids.append(task_id)
+
+    return {
+        "message": f"{len(task_ids)} tasks created and started successfully",
+        "task_ids": task_ids,
+    }
 
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
