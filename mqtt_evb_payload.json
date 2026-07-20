@@ -2,8 +2,9 @@
   "name": "mqtt_reader_task",
   "windowby_column": "time",
   "input": {
-    "type": "mqtt_evb",
+    "type": "mqtt",
     "params": {
+      "data_type": "compact",
       "connector_params": {
         "uri": "mqtt://127.0.0.1:1883",
         "topic": "evb/data"
@@ -65,8 +66,9 @@
   "name": "mqtt_reader_task_2",
   "windowby_column": "time",
   "input": {
-    "type": "mqtt_evb",
+    "type": "mqtt",
     "params": {
+      "data_type": "compact",
       "connector_params": {
         "uri": "mqtt://127.0.0.1:1883",
         "topic": "evb/data"
