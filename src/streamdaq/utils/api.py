@@ -1,5 +1,4 @@
 import functools
-import importlib
 from typing import Any
 
 import pathway as pw
@@ -16,20 +15,94 @@ _DTYPE_MAP: dict[str, type] = {
 }
 
 
-class _ConnectorInputCallable:
-    def __init__(self, cls, schema_params, connector_params):
-        self.cls = cls
+class _StreamingInputCallable:
+    def __init__(
+        self,
+        connector_type: str,
+        schema_params: dict,
+        connector_params: dict,
+        data_type: str,
+        extra_params: dict | None = None,
+    ):
+        self.connector_type = connector_type
         self.schema_params = schema_params
         self.connector_params = connector_params
+        self.data_type = data_type
+        self.extra_params = extra_params or {}
 
     def __call__(self, **kwargs) -> pw.Table:
-        columns = {
-            col: pw.column_definition(dtype=_DTYPE_MAP[dtype_str])
-            for col, dtype_str in self.schema_params.items()
-        }
-        schema = pw.schema_builder(columns)
-        subject = self.cls(**self.connector_params)
-        return pw.io.python.read(subject, schema=schema)
+        from streamdaq.schema.evb.definitions import EVBSchema
+        from streamdaq.schema.evb.wrangling import convert_raw_evb_to_native_format
+
+        def get_raw_table(schema=None, format=None):
+            import uuid
+
+            params = dict(self.connector_params)
+
+            if self.connector_type == "python_connector":
+                import importlib
+
+                mod = importlib.import_module(self.extra_params["module"])
+                cls = getattr(mod, self.extra_params["class_name"])
+                subject = cls(**params)
+                if schema is not None:
+                    return pw.io.python.read(subject, schema=schema)
+                return pw.io.python.read(subject)
+
+            if schema is not None:
+                params["schema"] = schema
+            if format is not None:
+                params["format"] = format
+
+            if self.connector_type == "mqtt":
+                base_uri = params.get("uri", "")
+                if "client_id=" not in base_uri:
+                    sep = "&" if "?" in base_uri else "?"
+                    client_id = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
+                    params["uri"] = f"{base_uri}{sep}client_id={client_id}"
+                return pw.io.mqtt.read(**params)
+
+            elif self.connector_type == "kafka":
+                if "group.id" not in params:
+                    params["group.id"] = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
+                return pw.io.kafka.read(**params)
+
+            else:
+                raise ValueError(f"Unknown connector_type: {self.connector_type}")
+
+        if self.data_type == "native":
+            columns = {
+                col: pw.column_definition(dtype=_DTYPE_MAP[dtype_str])
+                for col, dtype_str in self.schema_params.items()
+            }
+            schema = pw.schema_builder(columns) if columns else None
+
+            format_type = None
+            if self.connector_type in ("mqtt", "kafka"):
+                format_type = self.connector_params.get("format", "json")
+
+            return get_raw_table(schema=schema, format=format_type)
+
+        elif self.data_type == "compact":
+            format_type = "json" if self.connector_type in ("mqtt", "kafka") else None
+            if not self.schema_params:
+                from streamdaq.schema.evb import discover_native_evb_schema
+
+                native_evb_schema = discover_native_evb_schema(
+                    get_table_function=lambda: get_raw_table(schema=EVBSchema, format=format_type),
+                    timeout_seconds=20,
+                )
+            else:
+                native_evb_schema = tuple(
+                    (col_name, _DTYPE_MAP[dtype_str])
+                    for col_name, dtype_str in self.schema_params.items()
+                )
+
+            raw_table = get_raw_table(schema=EVBSchema, format=format_type)
+            return convert_raw_evb_to_native_format(raw_table, native_evb_schema)
+
+        else:
+            raise ValueError(f"Unknown data_type: {self.data_type}")
 
 
 def build_python_connector_input(params: dict[str, Any]):
@@ -40,90 +113,53 @@ def build_python_connector_input(params: dict[str, Any]):
         class_name (str):        Class inside that module (e.g. ``"MockStreamSubject"``).
         schema (dict[str,str]):  Column name → type string (``"int"``, ``"float"``, …).
         connector_params (dict): Kwargs forwarded to the ConnectorSubject constructor.
+        data_type (str):         "native" or "compact".
     """
-    mod = importlib.import_module(params["module"])
-    cls = getattr(mod, params["class_name"])
-
-    schema_params = params["schema"]
-    connector_params: dict = params.get("connector_params", {})
-
-    return _ConnectorInputCallable(cls, schema_params, connector_params)
-
-
-class _EVBMockInputCallable:
-    def __init__(self, schema_params, connector_params):
-        self.schema_params = schema_params
-        self.connector_params = connector_params
-
-    def __call__(self, **kwargs) -> pw.Table:
-        from streamdaq.schema.evb.definitions import EVBSchema
-        from streamdaq.schema.evb.mock_generator import EVBMockStream
-        from streamdaq.schema.evb.wrangling import convert_raw_evb_to_native_format
-
-        # Construct EVBMockStream
-        subject = EVBMockStream(**self.connector_params)
-
-        # Read raw stream using EVBSchema
-        raw_table = pw.io.python.read(subject, schema=EVBSchema)
-
-        # Build native schema: tuple[tuple[str, type]]
-        native_evb_schema = tuple(
-            (col_name, _DTYPE_MAP[dtype_str]) for col_name, dtype_str in self.schema_params.items()
-        )
-
-        return convert_raw_evb_to_native_format(raw_table, native_evb_schema)
-
-
-def build_evb_mock_input(params: dict[str, Any]):
-    """Specific input factory for EVBMockStream."""
+    data_type = params.get("data_type", "native")
     schema_params = params.get("schema", {})
-    connector_params = params.get("connector_params", {})
-    return _EVBMockInputCallable(schema_params, connector_params)
+
+    if "connector_params" in params:
+        connector_params = params["connector_params"]
+    else:
+        connector_params = {
+            k: v
+            for k, v in params.items()
+            if k not in ("data_type", "schema", "module", "class_name")
+        }
+
+    extra_params = {
+        "module": params["module"],
+        "class_name": params["class_name"],
+    }
+    return _StreamingInputCallable(
+        "python_connector", schema_params, connector_params, data_type, extra_params
+    )
 
 
-class _MQTT_EVBInputCallable:
-    def __init__(self, schema_params, connector_params):
-        self.schema_params = schema_params
-        self.connector_params = connector_params
-
-    def __call__(self, **kwargs) -> pw.Table:
-        import uuid
-
-        from streamdaq.schema.evb.definitions import EVBSchema
-        from streamdaq.schema.evb.wrangling import convert_raw_evb_to_native_format
-
-        base_uri = self.connector_params.get("uri")
-        topic = self.connector_params.get("topic")
-
-        # Determine if we need to append with ? or &
-        sep = "&" if "?" in base_uri else "?"
-
-        def get_raw_mqtt_table():
-            client_id = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
-            full_uri = f"{base_uri}{sep}client_id={client_id}"
-            return pw.io.mqtt.read(uri=full_uri, topic=topic, format="json", schema=EVBSchema)
-
-        if not self.schema_params:
-            from streamdaq.schema.evb import discover_native_evb_schema
-
-            native_evb_schema = discover_native_evb_schema(
-                get_table_function=get_raw_mqtt_table, timeout_seconds=20
-            )
-        else:
-            native_evb_schema = tuple(
-                (col_name, _DTYPE_MAP[dtype_str])
-                for col_name, dtype_str in self.schema_params.items()
-            )
-
-        raw_table = get_raw_mqtt_table()
-        return convert_raw_evb_to_native_format(raw_table, native_evb_schema)
-
-
-def build_mqtt_evb_input(params: dict[str, Any]):
-    """Specific input factory for parsing EVB over MQTT."""
+def build_mqtt_input(params: dict[str, Any]):
+    """Specific input factory for reading from MQTT."""
+    data_type = params.get("data_type", "native")
     schema_params = params.get("schema", {})
-    connector_params = params.get("connector_params", {})
-    return _MQTT_EVBInputCallable(schema_params, connector_params)
+
+    if "connector_params" in params:
+        connector_params = params["connector_params"]
+    else:
+        connector_params = {k: v for k, v in params.items() if k not in ("data_type", "schema")}
+
+    return _StreamingInputCallable("mqtt", schema_params, connector_params, data_type)
+
+
+def build_kafka_input(params: dict[str, Any]):
+    """Specific input factory for reading from Kafka."""
+    data_type = params.get("data_type", "native")
+    schema_params = params.get("schema", {})
+
+    if "connector_params" in params:
+        connector_params = params["connector_params"]
+    else:
+        connector_params = {k: v for k, v in params.items() if k not in ("data_type", "schema")}
+
+    return _StreamingInputCallable("kafka", schema_params, connector_params, data_type)
 
 
 def build_csv_input(params: dict[str, Any]):

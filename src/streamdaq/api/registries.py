@@ -1,27 +1,20 @@
-import functools
-
 import pathway as pw
 
 from streamdaq import checks, measures
 from streamdaq.utils.api import (
     build_csv_input,
-    build_evb_mock_input,
-    build_mqtt_evb_input,
+    build_kafka_input,
+    build_mqtt_input,
     build_parquet_input,
     build_python_connector_input,
 )
-from streamdaq.utils.picklable import Lambda
 
 INPUT_REGISTRY = {
     "csv": build_csv_input,  # static or streaming
     "parquet": build_parquet_input,  # static or streaming
-    "evb_mock": build_evb_mock_input,
-    "mqtt_evb": build_mqtt_evb_input,  # streaming
     "python_connector": build_python_connector_input,  # streaming
-    "kafka": Lambda(lambda params: functools.partial(pw.io.kafka.read, **params)),  # streaming
-    "mqtt": Lambda(
-        lambda params: functools.partial(pw.io.mqtt.read, **params)
-    ),  # streaming (mqtt native, not evb)
+    "kafka": build_kafka_input,  # streaming
+    "mqtt": build_mqtt_input,  # streaming
 }
 
 OUTPUT_REGISTRY = {

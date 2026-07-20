@@ -39,4 +39,5 @@ class Session:
         set_active_session(self)
 
         # Block the main thread and run the API
+        # TODO: Create a process to run the api and not block the main thread
         uvicorn.run(app, host=host, port=port)
