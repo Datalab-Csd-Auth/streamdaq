@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 import streamdaq.api.routes as routes
 from streamdaq.api.app import app
+from tests.api.conftest import make_mock_session
 
 client = TestClient(app)
 
@@ -12,10 +13,10 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_tasks_store():
     # Setup: clear tasks before test
-    routes._TASKS_STORE.clear()
+    routes._get_tasks_store().clear()
     yield
     # Teardown: clear tasks after test
-    routes._TASKS_STORE.clear()
+    routes._get_tasks_store().clear()
 
 
 def test_create_task_invalid_measure_in_window_checks():
@@ -63,7 +64,7 @@ def test_create_task_invalid_instant_check():
 @patch("streamdaq.api.routes.build_task")
 @patch("streamdaq.api.routes._get_session")
 def test_create_task_valid(mock_get_session, mock_build_task):
-    mock_session = MagicMock()
+    mock_session = make_mock_session()
     mock_get_session.return_value = mock_session
     mock_task = MagicMock()
     mock_build_task.return_value = mock_task
@@ -101,8 +102,8 @@ def test_create_task_valid(mock_get_session, mock_build_task):
     response = client.post("/api/v1/bulk_create", json=[payload1, payload2])
     assert response.status_code == 201
     assert response.json()["task_ids"] == ["Valid Task 1", "Valid Task 2"]
-    assert "Valid Task 1" in routes._TASKS_STORE
-    assert "Valid Task 2" in routes._TASKS_STORE
+    assert "Valid Task 1" in routes._get_tasks_store()
+    assert "Valid Task 2" in routes._get_tasks_store()
 
     assert mock_build_task.call_count == 2
     assert mock_session.add_tasks.call_count == 2

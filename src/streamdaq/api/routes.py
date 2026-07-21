@@ -17,16 +17,14 @@ from streamdaq.api.models import (
 )
 from streamdaq.utils.api import (
     _get_session,
-    _get_task_for_update,
+    _get_tasks_store,
     _handle_running_task,
+    _sync_task_statuses,
     _validate_for_start,
+    update_task_config,
 )
 
 router = APIRouter(prefix="/api/v1")
-
-# TODO: Because session has its own (same) tasks list, we might not need this global store.
-# But for now, we will keep it for simplicity.
-_TASKS_STORE: dict[str, TaskConfig] = {}
 
 
 # Session
@@ -39,34 +37,21 @@ async def get_session_status() -> SessionStatus:
     return SessionStatus(status=status_str, active_tasks_count=active_tasks, version="1.0.0")
 
 
-def _sync_task_statuses():
-    session = _get_session()
-    if session is None:
-        return
-    for task_id, config in _TASKS_STORE.items():
-        if config.status == TaskStatus.RUNNING:
-            for task in session.tasks:
-                if task.name == config.name:
-                    if task._pw_process is not None and not task._pw_process.is_alive():
-                        config.status = TaskStatus.FINISHED
-                    break
-
-
 # Task CRUD
 @router.get("/tasks", response_model=dict[str, TaskConfig])
 async def list_tasks() -> dict[str, TaskConfig]:
     _sync_task_statuses()
-    return _TASKS_STORE
+    return {k: v for k, v in _get_tasks_store().items()}
 
 
 @router.get("/tasks/{task_id}", response_model=TaskConfig)
 async def get_task(task_id: str) -> TaskConfig:
     _sync_task_statuses()
-    if task_id not in _TASKS_STORE:
+    if task_id not in _get_tasks_store():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not found."
         )
-    return _TASKS_STORE[task_id]
+    return _get_tasks_store()[task_id]
 
 
 @router.get("/tasks/{task_id}/monitoring")
@@ -98,8 +83,6 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
             detail="No active StreamDAQ session is currently mounted.",
         )
 
-    # Since input/output are now optional on the model, enforce them here for
-    # the all-in-one creation flow.
     for task_config in task_configs:
         errors = _validate_for_start(task_config)
         if errors:
@@ -107,7 +90,7 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
 
         task_id = task_config.name
 
-        if task_id in _TASKS_STORE:
+        if task_id in _get_tasks_store():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Task with name '{task_id}' already exists.",
@@ -117,7 +100,7 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
     for task_config in task_configs:
         task_id = task_config.name
         task_config.status = TaskStatus.RUNNING
-        _TASKS_STORE[task_id] = task_config
+        _get_tasks_store()[task_id] = task_config
 
         # Build the task
         task = build_task(task_config)
@@ -146,12 +129,12 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
 async def delete_task(task_id: str) -> None:
     session = _get_session()
 
-    if task_id not in _TASKS_STORE:
+    if task_id not in _get_tasks_store():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not found."
         )
 
-    config = _TASKS_STORE[task_id]
+    config = _get_tasks_store()[task_id]
 
     # Find the matching task in the session and terminate its process
     if session:
@@ -164,14 +147,14 @@ async def delete_task(task_id: str) -> None:
                 session.tasks.remove(task)
                 break
 
-    del _TASKS_STORE[task_id]
+    del _get_tasks_store()[task_id]
 
 
 # Draft task builder endpoints
 @router.post("/tasks/{task_id}/init", status_code=status.HTTP_201_CREATED)
 async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[str, str]:
     """Create or dynamically update a task."""
-    is_new = task_id not in _TASKS_STORE
+    is_new = task_id not in _get_tasks_store()
     if is_new:
         config = TaskConfig(name=body.task_name, windowby_column=body.windowby_column)
         if body.window_type:
@@ -180,9 +163,9 @@ async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[s
             config.window_checks_config = WindowChecksConfig(
                 window=WindowConfig(type=body.window_type, params={}), checks=[]
             )
-        _TASKS_STORE[task_id] = config
+        _get_tasks_store()[task_id] = config
     else:
-        config = _TASKS_STORE[task_id]
+        config = _get_tasks_store()[task_id]
 
         if config.status == TaskStatus.DRAFT:
             config.name = body.task_name
@@ -227,6 +210,7 @@ async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[s
                     )
 
         _handle_running_task(task_id, config)
+        _get_tasks_store()[task_id] = config
 
     return {"message": "Task updated." if not is_new else "Draft task created.", "task_id": task_id}
 
@@ -234,27 +218,24 @@ async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[s
 @router.post("/tasks/{task_id}/input")
 async def set_input(task_id: str, input_config: InputConfig):
     """Set or replace the input configuration on a task."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    config.input = input_config
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        config.input = input_config
     return {"message": "Input configuration set.", "task_id": task_id}
 
 
 @router.post("/tasks/{task_id}/output")
 async def set_output(task_id: str, output_config: OutputConfig):
     """Set or replace the output configuration on a task."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    config.output = output_config
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        config.output = output_config
     return {"message": "Output configuration set.", "task_id": task_id}
 
 
 @router.post("/tasks/{task_id}/instant-checks")
 async def add_instant_check(task_id: str, check: InstantCheckConfig):
     """Append an instant check to a task."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    config.instant_checks.append(check)
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        config.instant_checks.append(check)
     return {"message": f"Instant check '{check.name}' added.", "task_id": task_id}
 
 
@@ -265,67 +246,70 @@ async def add_window_checks(task_id: str, body: WindowChecksConfig):
     The window configuration is set (or replaced) and the checks are appended
     to any existing window checks.
     """
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    if config.window_checks_config is None:
-        config.window_checks_config = body
-    else:
-        # Replace window config, append checks
-        config.window_checks_config.window = body.window
-        config.window_checks_config.checks.extend(body.checks)
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        if config.window_checks_config is None:
+            config.window_checks_config = body
+        else:
+            # Replace window config, append checks
+            config.window_checks_config.window = body.window
+            config.window_checks_config.checks.extend(body.checks)
     return {"message": "Window checks added.", "task_id": task_id}
 
 
 @router.delete("/tasks/{task_id}/instant-checks/{check_name}", status_code=status.HTTP_200_OK)
 async def remove_instant_check(task_id: str, check_name: str):
     """Remove an instant check from a task by name."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    original_count = len(config.instant_checks)
-    config.instant_checks = [c for c in config.instant_checks if c.name != check_name]
-    if len(config.instant_checks) == original_count:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Instant check '{check_name}' not found."
-        )
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        original_count = len(config.instant_checks)
+        config.instant_checks = [c for c in config.instant_checks if c.name != check_name]
+        if len(config.instant_checks) == original_count:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Instant check '{check_name}' not found.",
+            )
     return {"message": f"Instant check '{check_name}' removed.", "task_id": task_id}
 
 
 @router.delete("/tasks/{task_id}/window-checks/{check_name}", status_code=status.HTTP_200_OK)
 async def remove_window_check(task_id: str, check_name: str):
     """Remove a window check from a task by name."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    if config.window_checks_config is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Window check '{check_name}' not found."
-        )
-    original_count = len(config.window_checks_config.checks)
-    config.window_checks_config.checks = [
-        c for c in config.window_checks_config.checks if c.name != check_name
-    ]
-    if len(config.window_checks_config.checks) == original_count:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Window check '{check_name}' not found."
-        )
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        if config.window_checks_config is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Window check '{check_name}' not found.",
+            )
+        original_count = len(config.window_checks_config.checks)
+        config.window_checks_config.checks = [
+            c for c in config.window_checks_config.checks if c.name != check_name
+        ]
+        if len(config.window_checks_config.checks) == original_count:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Window check '{check_name}' not found.",
+            )
     return {"message": f"Window check '{check_name}' removed.", "task_id": task_id}
 
 
 @router.delete("/tasks/{task_id}/window-checks", status_code=status.HTTP_200_OK)
 async def remove_window_checks(task_id: str):
-    config = _get_task_for_update(task_id, _TASKS_STORE)
-    if config.window_checks_config is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Window checks not found."
-        )
-    config.window_checks_config = None
-    _handle_running_task(task_id, config)
+    with update_task_config(task_id, _get_tasks_store()) as config:
+        if config.window_checks_config is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Window checks not found."
+            )
+        config.window_checks_config = None
     return {"message": "Window checks removed.", "task_id": task_id}
 
 
 @router.post("/tasks/{task_id}/start")
 async def start_task(task_id: str) -> dict[str, str]:
     """Validate completeness and start a task."""
-    config = _get_task_for_update(task_id, _TASKS_STORE)
+    if task_id not in _get_tasks_store():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
+        )
+    config = _get_tasks_store()[task_id]
 
     errors = _validate_for_start(config)
     if errors:
@@ -346,6 +330,7 @@ async def start_task(task_id: str) -> dict[str, str]:
     session.add_tasks(task)
     task._start_pw_process()
     config.status = TaskStatus.RUNNING
+    _get_tasks_store()[task_id] = config
 
     return {"message": "Task started successfully.", "task_id": task_id}
 
