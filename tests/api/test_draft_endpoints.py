@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 import streamdaq.api.routes as routes
 from streamdaq.api.app import app
+from tests.api.conftest import make_mock_session
 
 client = TestClient(app)
 
@@ -27,9 +28,9 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_tasks_store():
     """Ensure a clean task store for every test."""
-    routes._TASKS_STORE.clear()
+    routes._get_tasks_store().clear()
     yield
-    routes._TASKS_STORE.clear()
+    routes._get_tasks_store().clear()
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -93,8 +94,8 @@ def test_create_draft():
     assert resp.status_code == 201
     body = resp.json()
     assert body["task_id"] == "my-task"
-    assert "my-task" in routes._TASKS_STORE
-    assert routes._TASKS_STORE["my-task"].status.value == "draft"
+    assert "my-task" in routes._get_tasks_store()
+    assert routes._get_tasks_store()["my-task"].status.value == "draft"
 
 
 # ─── 2. test_update_draft ────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ def test_update_draft():
     )
     assert resp.status_code == 201
 
-    config = routes._TASKS_STORE["my-task"]
+    config = routes._get_tasks_store()["my-task"]
     assert config.name == "new-name"
     assert config.windowby_column == "col1"
 
@@ -122,7 +123,7 @@ def test_set_input():
     resp = client.post("/api/v1/tasks/inp-task/input", json=_sample_input())
 
     assert resp.status_code == 200
-    config = routes._TASKS_STORE["inp-task"]
+    config = routes._get_tasks_store()["inp-task"]
     assert config.input is not None
     assert config.input.type == "kafka"
 
@@ -136,7 +137,7 @@ def test_set_output():
     resp = client.post("/api/v1/tasks/out-task/output", json=_sample_output())
 
     assert resp.status_code == 200
-    config = routes._TASKS_STORE["out-task"]
+    config = routes._get_tasks_store()["out-task"]
     assert config.output is not None
     assert config.output.type == "jsonlines"
 
@@ -153,7 +154,7 @@ def test_add_instant_check():
     )
 
     assert resp.status_code == 200
-    config = routes._TASKS_STORE["ic-task"]
+    config = routes._get_tasks_store()["ic-task"]
     assert len(config.instant_checks) == 1
     assert config.instant_checks[0].name == "temp_check"
 
@@ -170,7 +171,7 @@ def test_add_window_checks():
     )
 
     assert resp.status_code == 200
-    config = routes._TASKS_STORE["wc-task"]
+    config = routes._get_tasks_store()["wc-task"]
     assert config.window_checks_config is not None
     assert len(config.window_checks_config.checks) == 1
     assert config.window_checks_config.checks[0].name == "wc1"
@@ -192,7 +193,7 @@ def test_add_window_checks_appends():
         json=_sample_window_checks(["second_check"], window_type="tumbling"),
     )
 
-    config = routes._TASKS_STORE["wca-task"]
+    config = routes._get_tasks_store()["wca-task"]
     wcc = config.window_checks_config
     assert wcc is not None
     check_names = [c.name for c in wcc.checks]
@@ -212,11 +213,11 @@ def test_remove_instant_check():
         "/api/v1/tasks/ric-task/instant-checks",
         json=_sample_instant_check("to_remove"),
     )
-    assert len(routes._TASKS_STORE["ric-task"].instant_checks) == 1
+    assert len(routes._get_tasks_store()["ric-task"].instant_checks) == 1
 
     resp = client.delete("/api/v1/tasks/ric-task/instant-checks/to_remove")
     assert resp.status_code == 200
-    assert len(routes._TASKS_STORE["ric-task"].instant_checks) == 0
+    assert len(routes._get_tasks_store()["ric-task"].instant_checks) == 0
 
 
 # ─── 9. test_remove_instant_check_not_found ─────────────────────────────────
@@ -241,12 +242,12 @@ def test_remove_window_check():
         "/api/v1/tasks/rwc-task/window-checks",
         json=_sample_window_checks(["keep_me", "drop_me"]),
     )
-    assert len(routes._TASKS_STORE["rwc-task"].window_checks_config.checks) == 2
+    assert len(routes._get_tasks_store()["rwc-task"].window_checks_config.checks) == 2
 
     resp = client.delete("/api/v1/tasks/rwc-task/window-checks/drop_me")
     assert resp.status_code == 200
 
-    remaining = routes._TASKS_STORE["rwc-task"].window_checks_config.checks
+    remaining = routes._get_tasks_store()["rwc-task"].window_checks_config.checks
     assert len(remaining) == 1
     assert remaining[0].name == "keep_me"
 
@@ -270,7 +271,7 @@ def test_remove_window_check_not_found():
 @patch("streamdaq.api.routes._get_session")
 def test_start_task(mock_get_session, mock_build_task):
     """Create draft → set input → set output → add check → start → 200, status=running."""
-    mock_session = MagicMock()
+    mock_session = make_mock_session()
     mock_get_session.return_value = mock_session
     mock_task = MagicMock()
     mock_build_task.return_value = mock_task
@@ -291,7 +292,7 @@ def test_start_task(mock_get_session, mock_build_task):
     mock_session.add_tasks.assert_called_once_with(mock_task)
     mock_task._start_pw_process.assert_called_once()
 
-    assert routes._TASKS_STORE["start-task"].status.value == "running"
+    assert routes._get_tasks_store()["start-task"].status.value == "running"
 
 
 # ─── 13. test_start_task_missing_input ──────────────────────────────────────
@@ -347,7 +348,7 @@ def test_start_task_no_session(mock_get_session):
 @patch("streamdaq.api.routes._get_session")
 def test_modify_running_task_immutability(mock_get_session, mock_build_task):
     """Start a task, then try to change immutable fields → 400."""
-    mock_session = MagicMock()
+    mock_session = make_mock_session()
     mock_get_session.return_value = mock_session
     mock_build_task.return_value = MagicMock()
 
@@ -398,11 +399,11 @@ def test_get_draft_shows_status():
 def test_delete_draft():
     """DELETE /tasks/{id} on a draft → 204, task is removed from store."""
     _create_draft("del-task")
-    assert "del-task" in routes._TASKS_STORE
+    assert "del-task" in routes._get_tasks_store()
 
     resp = client.delete("/api/v1/tasks/del-task")
     assert resp.status_code == 204
-    assert "del-task" not in routes._TASKS_STORE
+    assert "del-task" not in routes._get_tasks_store()
 
 
 # ─── 20. test_full_incremental_flow ─────────────────────────────────────────
@@ -410,10 +411,10 @@ def test_delete_draft():
 
 @patch("streamdaq.api.routes.build_task")
 @patch("streamdaq.api.routes._get_session")
-@patch("streamdaq.api.routes._handle_running_task")
+@patch("streamdaq.utils.api._handle_running_task")
 def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
     """End-to-end: create → input → output → instant check → window checks → start."""
-    mock_session = MagicMock()
+    mock_session = make_mock_session()
     mock_get_session.return_value = mock_session
     mock_task = MagicMock()
     mock_build_task.return_value = mock_task
@@ -421,17 +422,17 @@ def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
     # 1. Create draft
     resp = _create_draft("e2e-task", windowby_column="col1")
     assert resp.status_code == 201
-    assert routes._TASKS_STORE["e2e-task"].status.value == "draft"
+    assert routes._get_tasks_store()["e2e-task"].status.value == "draft"
 
     # 2. Set input
     resp = client.post("/api/v1/tasks/e2e-task/input", json=_sample_input())
     assert resp.status_code == 200
-    assert routes._TASKS_STORE["e2e-task"].input is not None
+    assert routes._get_tasks_store()["e2e-task"].input is not None
 
     # 3. Set output
     resp = client.post("/api/v1/tasks/e2e-task/output", json=_sample_output())
     assert resp.status_code == 200
-    assert routes._TASKS_STORE["e2e-task"].output is not None
+    assert routes._get_tasks_store()["e2e-task"].output is not None
 
     # 4. Add instant check
     resp = client.post(
@@ -439,7 +440,7 @@ def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
         json=_sample_instant_check("e2e_instant"),
     )
     assert resp.status_code == 200
-    assert len(routes._TASKS_STORE["e2e-task"].instant_checks) == 1
+    assert len(routes._get_tasks_store()["e2e-task"].instant_checks) == 1
 
     # 5. Add window checks
     resp = client.post(
@@ -447,7 +448,7 @@ def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
         json=_sample_window_checks(["e2e_wc"]),
     )
     assert resp.status_code == 200
-    assert routes._TASKS_STORE["e2e-task"].window_checks_config is not None
+    assert routes._get_tasks_store()["e2e-task"].window_checks_config is not None
 
     # 6. Start
     resp = client.post("/api/v1/tasks/e2e-task/start")
@@ -457,10 +458,10 @@ def test_full_incremental_flow(mock_restart, mock_get_session, mock_build_task):
     # 7. Restart placeholder trigger
     resp = client.post("/api/v1/tasks/e2e-task/input", json=_sample_input())
     assert resp.status_code == 200
-    mock_restart.assert_called_with("e2e-task", routes._TASKS_STORE["e2e-task"])
+    mock_restart.assert_called_with("e2e-task", routes._get_tasks_store()["e2e-task"])
 
     # Verify final state
-    config = routes._TASKS_STORE["e2e-task"]
+    config = routes._get_tasks_store()["e2e-task"]
     assert config.status.value == "running"
     assert config.input.type == "kafka"
     assert config.output.type == "jsonlines"
