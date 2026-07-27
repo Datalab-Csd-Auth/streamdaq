@@ -28,8 +28,19 @@ router = APIRouter(prefix="/api/v1")
 
 
 # Session
-@router.get("/session", response_model=SessionStatus)
+@router.get(
+    "/session",
+    response_model=SessionStatus,
+    summary="Get Session Status",
+    tags=["Session"],
+    response_description="Current status of the StreamDAQ engine session.",
+)
 async def get_session_status() -> SessionStatus:
+    """Retrieve the status of the active StreamDAQ engine session.
+
+    Returns the engine status ('running' or 'stopped'), the total number of currently
+    active monitoring tasks, and the system API version.
+    """
     session = _get_session()
     status_str = "running" if session else "stopped"
     active_tasks = len(session.tasks) if session else 0
@@ -38,14 +49,37 @@ async def get_session_status() -> SessionStatus:
 
 
 # Task CRUD
-@router.get("/tasks", response_model=dict[str, TaskConfig])
+@router.get(
+    "/tasks",
+    response_model=dict[str, TaskConfig],
+    summary="List All Tasks",
+    tags=["Tasks"],
+    response_description="A mapping of task IDs to their current configurations.",
+)
 async def list_tasks() -> dict[str, TaskConfig]:
+    """Retrieve all registered tasks and their current configuration states.
+
+    Synchronizes task execution statuses before returning.
+    """
     _sync_task_statuses()
     return {k: v for k, v in _get_tasks_store().items()}
 
 
-@router.get("/tasks/{task_id}", response_model=TaskConfig)
+@router.get(
+    "/tasks/{task_id}",
+    response_model=TaskConfig,
+    summary="Get Task by ID",
+    tags=["Tasks"],
+    response_description="The task configuration for the requested task ID.",
+    responses={
+        404: {"description": "Task not found."},
+    },
+)
 async def get_task(task_id: str) -> TaskConfig:
+    """Retrieve details and configuration for a specific task by its ID.
+
+    Used for incremental task building and monitoring.
+    """
     _sync_task_statuses()
     if task_id not in _get_tasks_store():
         raise HTTPException(
@@ -54,11 +88,27 @@ async def get_task(task_id: str) -> TaskConfig:
     return _get_tasks_store()[task_id]
 
 
-@router.get("/tasks/{task_id}/monitoring")
+@router.get(
+    "/tasks/{task_id}/monitoring",
+    summary="Get Task Monitoring Output (Currently Disabled)",
+    tags=["Monitoring"],
+    response_description=("Currently disabled. Intended for real-time stream monitoring via a UI."),
+    deprecated=True,
+)
 async def get_task_monitoring(
     task_id: str, table_type: str = "instant", lines: int = 50
 ) -> list[dict]:
-    """Reads the latest monitored output for a task."""
+    """Reads the latest monitored output logs for a specific task.
+
+    Note:
+        This endpoint is currently disabled. It is designed for incremental stream monitoring
+        based on the UI interface.
+
+    Args:
+        task_id: Identifier of the target monitoring task.
+        table_type: Type of monitoring output ('instant' or 'window'). Default is 'instant'.
+        lines: Number of recent output lines to read. Default is 50.
+    """
     filepath = f".streamdaq_monitoring/{task_id}_{table_type}.jsonl"
     if not os.path.exists(filepath):
         return []
@@ -74,8 +124,25 @@ async def get_task_monitoring(
     return data
 
 
-@router.post("/bulk_create", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/bulk_create",
+    status_code=status.HTTP_201_CREATED,
+    summary="Bulk Create and Start Tasks",
+    tags=["Tasks"],
+    response_description="Success message and list of created task IDs.",
+    responses={
+        409: {"description": "Task with specified name already exists."},
+        422: {"description": "Task validation failed prior to execution."},
+        503: {"description": "No active StreamDAQ session is currently mounted."},
+        500: {"description": "Internal error occurred while starting the task process."},
+    },
+)
 async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
+    """Bulk create, validate, and immediately start multiple data quality tasks.
+
+    Requires an active StreamDAQ session. Validates configurations for completeness before
+    starting processes.
+    """
     session = _get_session()
     if session is None:
         raise HTTPException(
@@ -125,8 +192,22 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
     }
 
 
-@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Task",
+    tags=["Tasks"],
+    response_description="Task removed successfully.",
+    responses={
+        404: {"description": "Task not found."},
+    },
+)
 async def delete_task(task_id: str) -> None:
+    """Terminate and delete a task by its ID.
+
+    Used for task lifecycle management in incremental task building and monitoring.
+    If the task process is running within an active session, it will be gracefully killed.
+    """
     session = _get_session()
 
     if task_id not in _get_tasks_store():
@@ -151,9 +232,23 @@ async def delete_task(task_id: str) -> None:
 
 
 # Draft task builder endpoints
-@router.post("/tasks/{task_id}/init", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tasks/{task_id}/init",
+    status_code=status.HTTP_201_CREATED,
+    summary="Initialize or Update Draft Task",
+    tags=["Draft Tasks"],
+    response_description="Success message and task ID.",
+    responses={
+        400: {"description": "Attempted to modify immutable task parameters on running task."},
+    },
+)
 async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[str, str]:
-    """Create or dynamically update a task."""
+    """Create a new draft task or dynamically update basic parameters on an existing task.
+
+    This endpoint is used for incremental task building and monitoring. Immutable properties
+    (such as `task_name`, `windowby_column`, and `window_type`) cannot be modified once a task
+    has started running.
+    """
     is_new = task_id not in _get_tasks_store()
     if is_new:
         config = TaskConfig(name=body.task_name, windowby_column=body.windowby_column)
@@ -215,36 +310,65 @@ async def create_or_update_task(task_id: str, body: TaskDynamicCreate) -> dict[s
     return {"message": "Task updated." if not is_new else "Draft task created.", "task_id": task_id}
 
 
-@router.post("/tasks/{task_id}/input")
+@router.post(
+    "/tasks/{task_id}/input",
+    summary="Set Task Input Configuration",
+    tags=["Draft Tasks"],
+    response_description="Success message and task ID.",
+)
 async def set_input(task_id: str, input_config: InputConfig):
-    """Set or replace the input configuration on a task."""
+    """Set or replace the stream input source configuration (e.g. MQTT, CSV, Kafka) on a task.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         config.input = input_config
     return {"message": "Input configuration set.", "task_id": task_id}
 
 
-@router.post("/tasks/{task_id}/output")
+@router.post(
+    "/tasks/{task_id}/output",
+    summary="Set Task Output Configuration",
+    tags=["Draft Tasks"],
+    response_description="Success message and task ID.",
+)
 async def set_output(task_id: str, output_config: OutputConfig):
-    """Set or replace the output configuration on a task."""
+    """Set or replace the output sink configuration on a task.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         config.output = output_config
     return {"message": "Output configuration set.", "task_id": task_id}
 
 
-@router.post("/tasks/{task_id}/instant-checks")
+@router.post(
+    "/tasks/{task_id}/instant-checks",
+    summary="Add Instant Check to Task",
+    tags=["Draft Tasks"],
+    response_description="Success message indicating the check was appended.",
+)
 async def add_instant_check(task_id: str, check: InstantCheckConfig):
-    """Append an instant check to a task."""
+    """Append a per-row instant check to a task configuration.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         config.instant_checks.append(check)
     return {"message": f"Instant check '{check.name}' added.", "task_id": task_id}
 
 
-@router.post("/tasks/{task_id}/window-checks")
+@router.post(
+    "/tasks/{task_id}/window-checks",
+    summary="Add Window Checks to Task",
+    tags=["Draft Tasks"],
+    response_description="Success message indicating window checks were updated.",
+)
 async def add_window_checks(task_id: str, body: WindowChecksConfig):
-    """Add window checks to a task.
+    """Set or update the window specification and append window checks to a task.
 
-    The window configuration is set (or replaced) and the checks are appended
-    to any existing window checks.
+    Replaces window timing/tumbling configuration and appends new checks to any existing ones.
+    This endpoint is used as part of incremental task building and monitoring.
     """
     with update_task_config(task_id, _get_tasks_store()) as config:
         if config.window_checks_config is None:
@@ -256,9 +380,21 @@ async def add_window_checks(task_id: str, body: WindowChecksConfig):
     return {"message": "Window checks added.", "task_id": task_id}
 
 
-@router.delete("/tasks/{task_id}/instant-checks/{check_name}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/tasks/{task_id}/instant-checks/{check_name}",
+    status_code=status.HTTP_200_OK,
+    summary="Remove Instant Check from Task",
+    tags=["Draft Tasks"],
+    response_description="Success message confirming check removal.",
+    responses={
+        404: {"description": "Instant check with specified name not found."},
+    },
+)
 async def remove_instant_check(task_id: str, check_name: str):
-    """Remove an instant check from a task by name."""
+    """Remove a specific instant check from a task by its name.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         original_count = len(config.instant_checks)
         config.instant_checks = [c for c in config.instant_checks if c.name != check_name]
@@ -270,9 +406,21 @@ async def remove_instant_check(task_id: str, check_name: str):
     return {"message": f"Instant check '{check_name}' removed.", "task_id": task_id}
 
 
-@router.delete("/tasks/{task_id}/window-checks/{check_name}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/tasks/{task_id}/window-checks/{check_name}",
+    status_code=status.HTTP_200_OK,
+    summary="Remove Window Check from Task",
+    tags=["Draft Tasks"],
+    response_description="Success message confirming window check removal.",
+    responses={
+        404: {"description": "Window check with specified name not found."},
+    },
+)
 async def remove_window_check(task_id: str, check_name: str):
-    """Remove a window check from a task by name."""
+    """Remove a specific window check from a task by its name.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         if config.window_checks_config is None:
             raise HTTPException(
@@ -291,8 +439,21 @@ async def remove_window_check(task_id: str, check_name: str):
     return {"message": f"Window check '{check_name}' removed.", "task_id": task_id}
 
 
-@router.delete("/tasks/{task_id}/window-checks", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/tasks/{task_id}/window-checks",
+    status_code=status.HTTP_200_OK,
+    summary="Remove All Window Checks from Task",
+    tags=["Draft Tasks"],
+    response_description="Success message confirming removal of all window checks.",
+    responses={
+        404: {"description": "No window checks configuration found on task."},
+    },
+)
 async def remove_window_checks(task_id: str):
+    """Clear all window checks and reset window configuration on a task.
+
+    This endpoint is used as part of incremental task building and monitoring.
+    """
     with update_task_config(task_id, _get_tasks_store()) as config:
         if config.window_checks_config is None:
             raise HTTPException(
@@ -302,9 +463,22 @@ async def remove_window_checks(task_id: str):
     return {"message": "Window checks removed.", "task_id": task_id}
 
 
-@router.post("/tasks/{task_id}/start")
+@router.post(
+    "/tasks/{task_id}/start",
+    summary="Start or Restart Task",
+    tags=["Tasks"],
+    response_description="Status message indicating task was started or restarted.",
+    responses={
+        404: {"description": "Task not found."},
+        422: {"description": "Task failed completeness validation prior to start."},
+        503: {"description": "No active StreamDAQ session is currently mounted."},
+    },
+)
 async def start_task(task_id: str) -> dict[str, str]:
-    """Validate completeness and start a task."""
+    """Validate task configuration completeness and launch or restart the task process.
+
+    Finalizes incremental task building and starts real-time task monitoring.
+    """
     if task_id not in _get_tasks_store():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
@@ -335,9 +509,14 @@ async def start_task(task_id: str) -> dict[str, str]:
     return {"message": "Task started successfully.", "task_id": task_id}
 
 
-@router.get("/config/options")
+@router.get(
+    "/config/options",
+    summary="Get Configuration Options",
+    tags=["Configuration"],
+    response_description="Available registered inputs, outputs, windows, checks, and measures.",
+)
 async def get_config_options() -> dict[str, list[str]]:
-    """Return available options for UI dropdowns."""
+    """Return available option names for registered UI drop-down selectors."""
     from streamdaq.api.registries import (
         INPUT_REGISTRY,
         INSTANT_CHECK_REGISTRY,
