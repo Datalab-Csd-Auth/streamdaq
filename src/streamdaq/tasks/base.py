@@ -80,10 +80,27 @@ class Task:
             if instant_table:
                 self.output(instant_table, **self.output_kwargs)
             if window_table:
-                output_name = self.output_kwargs.get("filename", "output.jsonl")
-                p = Path(output_name)
-                window_filename = str(p.parent / f"{p.stem}_window{p.suffix}")
-                window_kwargs = {**self.output_kwargs, "filename": window_filename}
+                if "filename" in self.output_kwargs:
+                    p = Path(self.output_kwargs["filename"])
+                    window_filename = str(p.parent / f"{p.stem}_window{p.suffix}")
+                    window_kwargs = {**self.output_kwargs, "filename": window_filename}
+                elif "topic_name" in self.output_kwargs:
+                    window_kwargs = {
+                        **self.output_kwargs,
+                        "topic_name": f"{self.output_kwargs['topic_name']}_window",
+                    }
+                elif "topic" in self.output_kwargs:
+                    window_kwargs = {
+                        **self.output_kwargs,
+                        "topic": f"{self.output_kwargs['topic']}_window",
+                    }
+                elif "table_name" in self.output_kwargs:
+                    window_kwargs = {
+                        **self.output_kwargs,
+                        "table_name": f"{self.output_kwargs['table_name']}_window",
+                    }
+                else:
+                    window_kwargs = dict(self.output_kwargs)
                 self.output(window_table, **window_kwargs)
         else:
             ...
