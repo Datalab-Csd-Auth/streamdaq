@@ -61,6 +61,12 @@ class _StreamingInputCallable:
                     sep = "&" if "?" in base_uri else "?"
                     client_id = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
                     params["uri"] = f"{base_uri}{sep}client_id={client_id}"
+                else:
+                    import re
+
+                    params["uri"] = re.sub(
+                        r"(client_id=[^&]+)", r"\1_" + uuid.uuid4().hex[:6], base_uri
+                    )
                 return pw.io.mqtt.read(**params)
 
             elif self.connector_type == "kafka":
@@ -148,6 +154,22 @@ def build_mqtt_input(params: dict[str, Any]):
         connector_params = {k: v for k, v in params.items() if k not in ("data_type", "schema")}
 
     return _StreamingInputCallable("mqtt", schema_params, connector_params, data_type)
+
+
+def build_mqtt_output(table: pw.Table, **params: Any) -> None:
+    """Specific output writer for MQTT ensuring a unique client_id is present in the uri."""
+    import re
+    import uuid
+
+    params = dict(params)
+    base_uri = params.get("uri", "")
+    if "client_id=" not in base_uri:
+        sep = "&" if "?" in base_uri else "?"
+        client_id = f"streamdaq_writer_{uuid.uuid4().hex[:8]}"
+        params["uri"] = f"{base_uri}{sep}client_id={client_id}"
+    else:
+        params["uri"] = re.sub(r"(client_id=[^&]+)", r"\1_" + uuid.uuid4().hex[:6], base_uri)
+    return pw.io.mqtt.write(table, **params)
 
 
 def build_kafka_input(params: dict[str, Any]):
