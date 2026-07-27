@@ -5,6 +5,7 @@ from streamdaq.utils.api import (
     build_csv_input,
     build_kafka_input,
     build_mqtt_input,
+    build_mqtt_output,
     build_parquet_input,
     build_python_connector_input,
 )
@@ -21,7 +22,7 @@ OUTPUT_REGISTRY = {
     "jsonlines": pw.io.jsonlines.write,
     "csv": pw.io.csv.write,
     "postgres": pw.io.postgres.write,
-    "mqtt": pw.io.mqtt.write,
+    "mqtt": build_mqtt_output,
     "kafka": pw.io.kafka.write,
 }
 

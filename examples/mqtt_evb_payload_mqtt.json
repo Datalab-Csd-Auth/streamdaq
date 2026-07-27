@@ -1,0 +1,122 @@
+[
+  {
+    "name": "mqtt_reader_task",
+    "windowby_column": "time",
+    "input": {
+      "type": "mqtt",
+      "params": {
+        "data_type": "compact",
+        "connector_params": {
+          "uri": "mqtt://127.0.0.1:1883",
+          "topic": "evb/data"
+        }
+      }
+    },
+    "output": {
+      "type": "mqtt",
+      "params": {
+        "uri": "mqtt://127.0.0.1:1883",
+        "topic": "evb/output_1"
+      }
+    },
+    "instant_checks": [
+      {
+        "name": "valid_time",
+        "check_class": "InRange",
+        "params": {
+          "column": "time",
+          "low": 0,
+          "high": 9000000000000,
+          "inclusive_low": true,
+          "inclusive_high": true
+        }
+      }
+    ],
+    "window_checks_config": {
+      "window": {
+        "type": "sliding",
+        "params": {
+          "duration": 5000,
+          "hop": 1000
+        }
+      },
+      "checks": [
+        {
+          "name": "minimum_message_count",
+          "measure": {
+            "type": "Count",
+            "params": {
+              "column": "time"
+            }
+          },
+          "must_be": ">= 1"
+        },
+        {
+          "name": "mean_hostile_flamingo",
+          "measure": {
+            "type": "Mean",
+            "params": {
+              "column": "hostile_flamingo"
+            }
+          },
+          "must_be": ">= 0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "mqtt_reader_task_2",
+    "windowby_column": "time",
+    "input": {
+      "type": "mqtt",
+      "params": {
+        "data_type": "compact",
+        "connector_params": {
+          "uri": "mqtt://127.0.0.1:1883",
+          "topic": "evb/data"
+        }
+      }
+    },
+    "output": {
+      "type": "mqtt",
+      "params": {
+        "uri": "mqtt://127.0.0.1:1883",
+        "topic": "evb/output_2"
+      }
+    },
+    "instant_checks": [
+      {
+        "name": "valid_time_2",
+        "check_class": "InRange",
+        "params": {
+          "column": "time",
+          "low": 0,
+          "high": 9000000000000,
+          "inclusive_low": true,
+          "inclusive_high": true
+        }
+      }
+    ],
+    "window_checks_config": {
+      "window": {
+        "type": "sliding",
+        "params": {
+          "duration": 5000,
+          "hop": 1000
+        }
+      },
+      "checks": [
+        {
+          "name": "minimum_message_count_2",
+          "measure": {
+            "type": "Count",
+            "params": {
+              "column": "time"
+            }
+          },
+          "must_be": ">= 1"
+        }
+      ]
+    }
+  }
+]
