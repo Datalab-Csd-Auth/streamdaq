@@ -6,7 +6,7 @@ import pathway as pw
 from streamdaq.computations.numeric import compute_above_mean_count, fraction
 from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.tuple import Tuple
-from streamdaq.measures.base import RoundableDataQualityMeasure
+from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 from streamdaq.utils.picklable import Lambda
 
@@ -14,7 +14,7 @@ from streamdaq.utils.picklable import Lambda
 @dataclass
 class AboveMeanFraction(RoundableDataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple, Count]
 
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(

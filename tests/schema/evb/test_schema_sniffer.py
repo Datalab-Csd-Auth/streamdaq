@@ -49,8 +49,9 @@ class TestDiscoverNativeEVBSchema:
             get_table_function=get_table_function, timeout_seconds=10
         )
 
-        assert isinstance(result, tuple)
-        assert len(result) == 6
+        assert isinstance(result, dict)
+        assert len(result["fields"]) == 6
+        assert len(result["tags"]) == 2
         for field_name, field_type in result:
             assert isinstance(field_name, str)
             assert field_type is float

@@ -1,5 +1,7 @@
+import os
 from streamdaq.api.app import set_active_session
 from streamdaq.sessions.base import Session
+
 
 # We create exactly one Session instance that owns the embedded store.
 # This serves both as the Uvicorn hot-reload target (if imported) and the main script session.
@@ -14,7 +16,7 @@ def main():
     print("Waiting for tasks to be submitted via the API...\n")
 
     # Start the API server (this blocks the main thread)
-    session.serve_api(port=8080)
+    session.serve_api(host="0.0.0.0", port=int(os.environ.get("STREAMDAQ_PORT", 8080)))
 
 
 if __name__ == "__main__":

@@ -26,6 +26,11 @@ def build_task(config: TaskConfig) -> Task:
         output=output_callable,
         output_kwargs=config.output.params,
         windowby_column=config.windowby_column,
+        groupby_columns=(
+            config.window_checks_config.groupby_columns
+            if config.window_checks_config is not None
+            else None
+        )
     )
 
     # Add Instant Checks

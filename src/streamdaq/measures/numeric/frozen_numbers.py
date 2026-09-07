@@ -13,7 +13,7 @@ class FrozenNumbers(DataQualityMeasure):
     epsilon: int | float = field(default=0.0)
     min_samples: int = field(default=1)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.NUMERIC_ONLY
-    _dependencies: ClassVar[list[type[Self]]] = [SortedTupleValue]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [SortedTupleValue]
 
     def __post_init__(self):
         if self.min_samples < 1:

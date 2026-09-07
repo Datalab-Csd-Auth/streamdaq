@@ -1,7 +1,10 @@
+from typing import Optional
+
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
 from streamdaq.api.routes import router
+from streamdaq.sessions.base import Session
 
 # Global state to hold the StreamDAQ session
 _ACTIVE_SESSION = None
@@ -12,9 +15,13 @@ def set_active_session(session):
     _ACTIVE_SESSION = session
 
 
-def get_active_session():
+def get_active_session() -> Optional[Session]:
     return _ACTIVE_SESSION
 
+def destroy_active_session():
+    session = get_active_session()
+    if session:
+        session.gracefully_kill(20)
 
 def create_app() -> FastAPI:
     """
@@ -24,6 +31,7 @@ def create_app() -> FastAPI:
         title="StreamDAQ API",
         description="Declarative control plane for the StreamDAQ engine.",
         version="1.0.0",
+        on_shutdown=[destroy_active_session]
     )
 
     app.include_router(router)

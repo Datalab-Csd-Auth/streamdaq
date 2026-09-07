@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from fastapi import HTTPException, status
 from pydantic import (
@@ -169,6 +169,7 @@ class WindowConfig(BaseModel):
 
 class WindowChecksConfig(BaseModel):
     window: WindowConfig
+    groupby_columns: list[str] = Field(default_factory=lambda: [])
     checks: list[WindowCheckConfig]
 
 

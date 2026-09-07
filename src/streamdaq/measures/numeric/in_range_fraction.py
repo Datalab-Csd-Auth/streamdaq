@@ -6,7 +6,7 @@ import pathway as pw
 from streamdaq.computations.numeric import fraction, range_conformance_count
 from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.tuple import Tuple
-from streamdaq.measures.base import RoundableDataQualityMeasure
+from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 from streamdaq.utils.picklable import Lambda
 
@@ -18,7 +18,7 @@ class InRangeFraction(RoundableDataQualityMeasure):
     inclusive_low: bool = field(default=True)
     inclusive_high: bool = field(default=False)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple, Count]
 
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(

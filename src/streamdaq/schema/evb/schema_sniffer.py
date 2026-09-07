@@ -1,11 +1,15 @@
 import multiprocessing
+from queue import Empty as EmptyQueueException
+
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal, Optional
 
 import pathway as pw
+from pydantic import ValidationError
 
 from streamdaq.orchestration.utils import gracefully_kill
-from streamdaq.schema.evb.definitions import _VALID_TIME_DIGITS
+from streamdaq.schema.evb.definitions import EVBKeyNames, ValidatableEVBSchema
+from streamdaq.schema.evb.wrangling import Transform, TNATIVE_EVB_SCHEMA
 
 
 def _evb_native_schema_sniff_worker(
@@ -16,23 +20,44 @@ def _evb_native_schema_sniff_worker(
     Child process running Pathway to sniff the first message's schema.
     """
 
-    def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):
-        measurement: dict[str, Any] = row["measurements"][0].as_dict()
-        fields: list[str] = measurement["fields"]
-        values: list[Any] = measurement["values"][0]
+    def on_change(
+        key: pw.Pointer,
+        row: dict[str, tuple[pw.Json, ...]],
+        time: int,
+        is_addition: bool
+    ) -> None:
+        try:
+            evb = ValidatableEVBSchema.model_validate(
+                Transform.to_pydantic_validatable(row[EVBKeyNames.MEASUREMENTS]),
+                strict=True
+            )
+        except ValidationError as ve:
+            raise ValidationError(row)
 
-        if not fields[0] == "time":
-            return  # invalid fields, wait for the next message
-        if (not isinstance(values[0], int)) or (not len(str(values[0])) == _VALID_TIME_DIGITS):
-            return  # invalid values, wait for the next message
-        if len(fields) != len(values):
-            return  # invalid combination of fields and values, wait for the next message
+        if len(evb.measurements) == 0 or \
+            len(evb.measurements[0].values) == 0 or \
+            len(evb.measurements[0].values[0]) == 0:
+            return # empty EVB
 
-        fields = fields[1:]
-        values = values[1:]
-        discovered_schema: tuple[tuple[str, type]] = tuple(
-            [(field, type(value)) for field, value in zip(fields, values)]
-        )
+        measurement = evb.measurements[0]
+
+        fields = measurement.fields[1:]
+        first_values = measurement.values[0][1:]
+        tags = measurement.tags
+        
+        discovered_schema: TNATIVE_EVB_SCHEMA = {
+            "fields": tuple(
+                (field, type(value))
+                for field, value in zip(fields, first_values)
+            ),
+            "tags": tuple()
+        }
+
+        if len(tags) > 0:
+            discovered_schema["tags"] = tuple(
+                (tagname, str)
+                for tagname in Transform.to_encoded_tags(tags).keys()
+            )
         queue.put(discovered_schema)
 
     table = get_table_function()
@@ -45,7 +70,11 @@ def discover_native_evb_schema(
     get_table_function: Callable[[], pw.Table],
     timeout_seconds: int = 10,
     graceful_wait_seconds: int = 3,
-) -> tuple[tuple[str, type]]:
+) -> TNATIVE_EVB_SCHEMA:
+    """
+    Spawns a PW Schema sniffer in a child process to deduce the native schema
+    from a compact EVB schema.
+    """
 
     schema_queue = multiprocessing.Queue()
     sniffer_process = multiprocessing.Process(
@@ -55,7 +84,7 @@ def discover_native_evb_schema(
 
     try:
         discovered_schema = schema_queue.get(timeout=timeout_seconds)
-    except multiprocessing.queues.Empty:
+    except EmptyQueueException:
         raise TimeoutError(
             f"The EVB Schema Sniffer did not respond within {timeout_seconds} sec."
             "Make sure the EVB source is sending data and/or increase the timeout."

@@ -6,11 +6,11 @@ from streamdaq.utils.picklable import Lambda
 
 class LambdaFactory:
     @classmethod
-    def get_nth_list_element(cls, n: int, dtype: type | None = None) -> Callable:
+    def get_nth_list_element(cls, n: int, dtype: type | None = None) -> Lambda:
         if not dtype:
             return Lambda(lambda elements: elements[n])
 
-        dtype_to_lambda: dict[type, Callable] = {
+        dtype_to_lambda: dict[type, Lambda] = {
             bool: Lambda(lambda elements: elements[n].as_bool()),
             dict: Lambda(lambda elements: elements[n].as_dict()),
             float: Lambda(lambda elements: elements[n].as_float()),
@@ -26,11 +26,15 @@ class LambdaFactory:
         return dtype_to_lambda[dtype]
 
     @classmethod
-    def get_list_elements_from_n_to_end(cls, n: int, dtype: type | None = None) -> Callable:
+    def get_list_elements_from_n_to_end(
+        cls,
+        n: int,
+        dtype: type | None = None
+    ) -> Lambda:
         if not dtype:
             return Lambda(lambda elements: list(elements[n:]))
 
-        dtype_to_lambda: dict[type, Callable] = {
+        dtype_to_lambda: dict[type, Lambda] = {
             bool: Lambda(lambda element: element.as_bool()),
             dict: Lambda(lambda element: element.as_dict()),
             float: Lambda(lambda element: element.as_float()),

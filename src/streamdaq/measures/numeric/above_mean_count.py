@@ -12,7 +12,7 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class AboveMeanCount(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.NUMERIC_ONLY
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(

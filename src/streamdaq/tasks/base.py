@@ -3,13 +3,14 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 import pathway as pw
 
 from streamdaq.checks.base import DataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.checks.window.base import WindowDataQualityCheck
+from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.tasks.task_output import TaskOutput
 from streamdaq.utils.picklable import Lambda
@@ -19,12 +20,13 @@ from streamdaq.windows.base import Window
 
 @dataclass
 class Task:
-    input: Callable[[Any], pw.Table]
-    output: Callable[[Any], None] | TaskOutput
+    input: Callable[..., pw.Table]
+    output: Callable[..., None] | TaskOutput
     name: str | None = None
     instant_checks: list[InstantDataQualityCheck] = field(default_factory=Lambda(lambda: []))
     window_checks: list[WindowDataQualityCheck] = field(default_factory=Lambda(lambda: []))
     window: Window | None = None
+    groupby_columns: list[str] = field(default_factory=Lambda(lambda: []))
     windowby_column: str | None = None
     input_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
     output_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
@@ -33,6 +35,15 @@ class Task:
         self.instant_table: pw.Table | None = None
         self.window_table: pw.Table | None = None
         self._pw_process: multiprocessing.Process | None = None
+
+    def gracefully_kill(self, timeout: int = 20):
+        if self._pw_process is not None and self._pw_process.is_alive():
+            self._pw_process.terminate()
+            self._pw_process.join(timeout)
+
+            if self._pw_process.is_alive():
+                self._pw_process.kill()
+                self._pw_process.join()
 
     def add_instant_checks(self, *instant_checks: InstantDataQualityCheck) -> Self:
         for instant_check in instant_checks:
@@ -58,11 +69,13 @@ class Task:
             )
 
         self.add_instant_checks(*instant_checks)
-        self.add_window_checks(*window_checks)
+
+        if window is not None:
+            self.add_window_checks(*window_checks, window=window)
 
         return self
 
-    def _start_pw_process(self) -> multiprocessing.Process:
+    def _start_pw_process(self) -> None:
         self._pw_process = multiprocessing.Process(target=self._pw_task_worker_function)
         self._pw_process.start()
 
@@ -118,9 +131,12 @@ class Task:
             if window_table:
                 pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
 
-        pw.run()
+        pw.run(monitoring_level=pw.MonitoringLevel.NONE)
 
-    def __construct_pw_dag(self, table: pw.Table) -> pw.Table:
+    def __construct_pw_dag(
+        self,
+        table: pw.Table
+    ) -> tuple[Optional[pw.Table], Optional[pw.Table]]:
         self.instant_table = self.__construct_instant_pw_dag(table) if self.instant_checks else None
         self.window_table = self.__construct_window_pw_dag(table) if self.window_checks else None
         return self.instant_table, self.window_table
@@ -134,7 +150,11 @@ class Task:
 
     def __collect_reduce_measurement_assessment_kwargs(
         self,
-    ) -> tuple[dict[str, pw.ColumnExpression]]:
+    ) -> tuple[
+            dict[str, pw.ColumnExpression],
+            dict[str, pw.ColumnExpression],
+            dict[str, pw.ColumnExpression]
+        ]:
         reduce_kwargs: dict[str, pw.ColumnExpression] = dict()
         measurement_kwargs: dict[str, pw.ColumnExpression] = dict()
         assessment_kwargs: dict[str, pw.ColumnExpression] = dict()
@@ -187,12 +207,20 @@ class Task:
         print(f"{assessment_kwargs=}")
 
         # Then, use the kwargs to construct the pathway DAG
-        reduced = table.windowby(
-            table[self.windowby_column],
-            # window=self.window.to_pathway_window(), TODO FIX THIS
-            window=self.window,
-            behavior=pw.temporal.exactly_once_behavior(),
-        ).reduce(**reduce_kwargs)
+        reduced = table.with_columns(
+                groupby_column=self.__construct_groupby_columnexpression()
+            ).windowby(
+                pw.this[self.windowby_column],
+                # window=self.window.to_pathway_window(), TODO FIX THIS
+                window=self.window,
+                behavior=pw.temporal.exactly_once_behavior(),
+                instance=pw.this.groupby_column
+            ).reduce(
+                groupby_column=pw.this._pw_instance,
+                window_start=pw.this._pw_window_start,
+                window_end=pw.this._pw_window_end,
+                **reduce_kwargs
+            )
         measurements_table = reduced.with_columns(**measurement_kwargs)
         assessments_table = measurements_table.with_columns(**assessment_kwargs)
 
@@ -205,3 +233,15 @@ class Task:
         )
 
         return assessments_table
+
+
+    def __construct_groupby_columnexpression(self) -> Optional[pw.ColumnExpression]:
+        if len(self.groupby_columns) == 0:
+            return None
+
+        expression = f"{self.groupby_columns[0]}__" + pw.this[self.groupby_columns[0]].as_str(unwrap=True)
+
+        for col in self.groupby_columns[1:]:
+            expression += f"-{col}__" + pw.this[col].as_str(unwrap=True)
+
+        return expression
