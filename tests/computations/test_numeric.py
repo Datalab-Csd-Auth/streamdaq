@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from streamdaq.computations.numeric import (
+    are_numbers_frozen,
     compute_above_mean_count,
     digit_count,
     filter_numeric,
@@ -488,3 +489,22 @@ class TestComputeAboveMeanCount:
 
     def test_floats(self):
         assert compute_above_mean_count([1.0, 2.0, 3.0]) == 1
+
+
+class TestAreNumbersFrozen:
+    @pytest.mark.parametrize(
+        "numbers_sorted_asc, epsilon, min_samples, expected",
+        [
+            ((5, 5, 5, 5), 0, 1, True),
+            ((5, 5, 5), 0, 10, False),
+            ((1.0, 1.1, 1.2), 0.5, 1, True),
+            ((1.0, 1.1, 2.0), 0.5, 1, False),
+            ((42,), 0, 1, True),
+            ((), 0, 1, False),
+            ((0, 5), 5, 1, True),
+            ((0, 6), 5, 1, False),
+            ((-10, -5, -3), 8, 1, True),
+        ],
+    )
+    def test_are_numbers_frozen(self, numbers_sorted_asc, epsilon, min_samples, expected):
+        assert are_numbers_frozen(numbers_sorted_asc, epsilon, min_samples) is expected

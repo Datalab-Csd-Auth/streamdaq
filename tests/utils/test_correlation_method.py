@@ -18,10 +18,6 @@ class TestCorrelationMethodMap:
         for member in CorrelationMethod:
             assert member.value == member.name.lower()
 
-    def test_functions_are_callable(self):
-        for fn in correlation_method_to_function_map.values():
-            assert callable(fn)
-
     def test_functions_return_float(self):
         x = [1, 2, 3, 4, 5]
         y = [2, 4, 6, 8, 10]

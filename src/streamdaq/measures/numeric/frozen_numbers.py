@@ -3,9 +3,11 @@ from typing import ClassVar, Self
 
 import pathway as pw
 
+from streamdaq.computations.numeric import are_numbers_frozen
 from streamdaq.measures.any_column.sorted_tuple_value import SortedTupleValue
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
+from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -30,17 +32,15 @@ class FrozenNumbers(DataQualityMeasure):
             )
             self.epsilon = abs(self.epsilon)
 
-    def _are_numbers_frozen(self, numbers_sorted_asc) -> bool:
-        n = len(numbers_sorted_asc)
-        if n < self.min_samples:
-            return False
-        minimum = numbers_sorted_asc[0]
-        maximum = numbers_sorted_asc[-1]
-        return maximum - minimum <= self.epsilon
-
     def get_expression(self) -> pw.ColumnExpression:
+        epsilon = self.epsilon
+        min_samples = self.min_samples
         return pw.apply_with_type(
-            self._are_numbers_frozen,
+            Lambda(
+                lambda numbers_sorted_asc: are_numbers_frozen(
+                    numbers_sorted_asc, epsilon, min_samples
+                )
+            ),
             bool,
             pw.this[SortedTupleValue._get_internal_shared_column_name(self.column)],
         )

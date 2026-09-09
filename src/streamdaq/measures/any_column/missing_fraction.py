@@ -3,7 +3,7 @@ from typing import Any, ClassVar, Self
 
 import pathway as pw
 
-from streamdaq.computations.generic import set_conformance_count
+from streamdaq.computations.generic import merge_missing_values, set_conformance_count
 from streamdaq.computations.numeric import fraction
 from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.tuple import Tuple
@@ -19,13 +19,8 @@ class MissingFraction(RoundableDataQualityMeasure):
     _explicit_missing_values: ClassVar[list[Any | None]] = [None, ""]
     _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
 
-    def _concatenate_explicit_diguised_values(self):
-        if not self.disguised:
-            return set(self._explicit_missing_values)
-        return set(self._explicit_missing_values + self.disguised)
-
     def get_expression(self) -> pw.ColumnExpression:
-        all_missing_values = self._concatenate_explicit_diguised_values()
+        all_missing_values = merge_missing_values(self.disguised, self._explicit_missing_values)
         return self._round_reducer_if_needed(
             pw.apply_with_type(
                 Lambda(
