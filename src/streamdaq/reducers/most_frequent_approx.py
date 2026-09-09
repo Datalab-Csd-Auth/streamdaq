@@ -30,14 +30,11 @@ class _MostFrequentApproxReducer(pw.BaseCustomAccumulator):
         sketch.merge(other_sketch)
         self.serialized_sketch = sketch.serialize()
 
-    def compute_result(self) -> list:
-        # TODO align the output format with the measures.any_column.most_frequent
-        # current format:
-        # (('Fudge_McChoc', 2, 2, 2), ('Ganache_Gobbler', 2, 2, 2), ('Truffle_Muncher', 1, 1, 1))
-        # expected format:
-        # ('Fudge_McChoc', 'Ganache_Gobbler') because they both have 2
+    def compute_result(self) -> tuple:
         sketch = frequent_strings_sketch.deserialize(self.serialized_sketch)
-        return sketch.get_frequent_items(frequent_items_error_type.NO_FALSE_NEGATIVES)
+        items = sketch.get_frequent_items(frequent_items_error_type.NO_FALSE_NEGATIVES)
+        max_estimate = max(estimate for _, estimate, *_ in items)
+        return tuple(value for value, estimate, *_ in items if estimate == max_estimate)
 
 
 most_frequent_approx_reducer = pw.reducers.udf_reducer(_MostFrequentApproxReducer)

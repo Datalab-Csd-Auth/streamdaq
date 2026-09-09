@@ -20,6 +20,31 @@ def is_greater_than(a: int | float, b: int | float, or_equal: bool = False) -> b
     return a >= b if or_equal else a > b
 
 
+def are_numbers_frozen(
+    numbers_sorted_asc: Iterable[int | float],
+    epsilon: int | float,
+    min_samples: int,
+) -> bool:
+    """Return whether a sorted sequence of numbers is "frozen" (barely changing).
+
+    Numbers are considered frozen when there are at least ``min_samples`` of them and
+    their spread (max - min) does not exceed ``epsilon``. Fewer than ``min_samples``
+    observations are treated as not-yet-determinable and therefore not frozen.
+
+    Args:
+        numbers_sorted_asc: The numbers, sorted in ascending order.
+        epsilon: Maximum allowed spread (max - min) for the numbers to count as frozen.
+        min_samples: Minimum number of observations required before a verdict is given.
+
+    Returns:
+        ``True`` if the numbers are frozen within ``epsilon``, ``False`` otherwise.
+    """
+    numbers_sorted_asc = tuple(ensure_iterable(numbers_sorted_asc))
+    if len(numbers_sorted_asc) < min_samples:
+        return False
+    return numbers_sorted_asc[-1] - numbers_sorted_asc[0] <= epsilon
+
+
 def fraction(
     numerator: int | float,
     denominator: int | float,

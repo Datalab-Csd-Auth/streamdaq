@@ -7,6 +7,7 @@ from streamdaq.computations.generic import (
     compute_constancy,
     count_singletons,
     is_monotonic,
+    merge_missing_values,
     most_frequent_elements,
     set_conformance_count,
 )
@@ -261,3 +262,17 @@ class TestCalculateCorrelation:
         # which causes scipy to raise ValueError (need at least 2 observations)
         result = calculate_correlation(5, 10)
         assert math.isnan(result)
+
+
+class TestMergeMissingValues:
+    def test_no_disguised_returns_explicit_only(self):
+        assert merge_missing_values([], [None, ""]) == {None, ""}
+
+    def test_none_disguised_returns_explicit_only(self):
+        assert merge_missing_values(None, [None, ""]) == {None, ""}
+
+    def test_disguised_values_are_merged(self):
+        assert merge_missing_values(["N/A", -999], [None, ""]) == {None, "", "N/A", -999}
+
+    def test_duplicates_are_deduplicated(self):
+        assert merge_missing_values([None, ""], [None, ""]) == {None, ""}
