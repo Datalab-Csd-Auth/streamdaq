@@ -153,7 +153,7 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
     for task_config in task_configs:
         errors = _validate_for_start(task_config)
         if errors:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors)
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
 
         task_id = task_config.name
 
@@ -487,7 +487,7 @@ async def start_task(task_id: str) -> dict[str, str]:
 
     errors = _validate_for_start(config)
     if errors:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
 
     session = _get_session()
     if session is None:
