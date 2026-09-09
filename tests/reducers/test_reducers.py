@@ -93,8 +93,7 @@ class TestMostFrequentApproxReducer:
     def test_from_row_single(self):
         r = _MostFrequentApproxReducer.from_row(["apple"])
         result = r.compute_result()
-        items = [item[0] for item in result]
-        assert "apple" in items
+        assert "apple" in result
 
     def test_dominant_item(self):
         values = ["a"] * 20 + ["b"]
@@ -102,13 +101,21 @@ class TestMostFrequentApproxReducer:
         for v in values[1:]:
             acc.update(_MostFrequentApproxReducer.from_row([v]))
         result = acc.compute_result()
-        items = [item[0] for item in result]
-        assert "a" in items
+        assert "a" in result
+
+    def test_tied_values_are_both_returned(self):
+        values = ["a"] * 5 + ["b"] * 5
+        acc = _MostFrequentApproxReducer.from_row([values[0]])
+        for v in values[1:]:
+            acc.update(_MostFrequentApproxReducer.from_row([v]))
+        result = acc.compute_result()
+        assert set(result) == {"a", "b"}
 
     def test_compute_result_type(self):
         r = _MostFrequentApproxReducer.from_row(["x"])
         result = r.compute_result()
-        assert isinstance(result, (list, tuple))
+        assert isinstance(result, tuple)
+        assert all(isinstance(v, str) for v in result)
 
     def test_multiple_update_cycles_preserve_state(self):
         # Build up a sketch over many updates, verify it doesn't corrupt
@@ -118,8 +125,7 @@ class TestMostFrequentApproxReducer:
         for i in range(5):
             acc.update(_MostFrequentApproxReducer.from_row([f"rare_{i}"]))
         result = acc.compute_result()
-        items = [item[0] for item in result]
-        assert "dominant" in items
+        assert "dominant" in result
 
     def test_many_distinct_items(self):
         # With k=3, only the most frequent items should survive
@@ -129,5 +135,4 @@ class TestMostFrequentApproxReducer:
         for i in range(20):
             acc.update(_MostFrequentApproxReducer.from_row([f"noise_{i}"]))
         result = acc.compute_result()
-        items = [item[0] for item in result]
-        assert "top" in items
+        assert "top" in result

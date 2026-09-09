@@ -16,6 +16,7 @@ from .missing_count import MissingCount
 from .missing_fraction import MissingFraction
 from .monotonic import Monotonic
 from .most_frequent import MostFrequent
+from .most_frequent_approx import MostFrequentApprox
 from .ndarray import Ndarray
 from .sorted_tuple_time import SortedTupleTime
 from .sorted_tuple_value import SortedTupleValue
@@ -43,6 +44,7 @@ __all__ = [
     "MissingCount",
     "MissingFraction",
     "Monotonic",
+    "MostFrequentApprox",
     "MostFrequent",
     "Ndarray",
     "SortedTupleTime",

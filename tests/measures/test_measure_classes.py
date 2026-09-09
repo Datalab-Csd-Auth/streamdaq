@@ -2,7 +2,7 @@ import pandas as pd
 import pathway as pw
 import pytest
 
-import streamdaq.measures as measures_mod
+import streamdaq.measures as measures_module
 import streamdaq.measures.any_column as any_column_mod
 import streamdaq.measures.categorical as categorical_mod
 import streamdaq.measures.numeric as numeric_mod
@@ -26,6 +26,7 @@ from streamdaq.measures.any_column.missing_count import MissingCount
 from streamdaq.measures.any_column.missing_fraction import MissingFraction
 from streamdaq.measures.any_column.monotonic import Monotonic
 from streamdaq.measures.any_column.most_frequent import MostFrequent
+from streamdaq.measures.any_column.most_frequent_approx import MostFrequentApprox
 from streamdaq.measures.any_column.ndarray import Ndarray
 from streamdaq.measures.any_column.sorted_tuple_time import SortedTupleTime
 from streamdaq.measures.any_column.sorted_tuple_value import SortedTupleValue
@@ -42,6 +43,7 @@ from streamdaq.measures.categorical.median_length import MedianLength
 from streamdaq.measures.categorical.min_length import MinLength
 from streamdaq.measures.categorical.regex_count import RegexCount
 from streamdaq.measures.categorical.regex_fraction import RegexFraction
+from streamdaq.measures.measure_dag import build_measure_dag
 
 # numeric measures
 from streamdaq.measures.numeric.above_mean_count import AboveMeanCount
@@ -67,482 +69,369 @@ from streamdaq.measures.numeric.variance import Variance
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 
 
-class TestAvailabilityValidation:
-    def test_default_min_samples(self):
-        m = Availability(column="x")
-        assert m.min_samples == 1
+class MeasureSpec:
+    """A single source of truth describing one measure for the data-driven tests.
 
-    def test_custom_min_samples(self):
-        m = Availability(column="x", min_samples=10)
-        assert m.min_samples == 10
+    Adding a new measure to the suite means adding exactly one ``MeasureSpec`` entry to
+    ``MEASURE_SPECS`` below. Each spec drives three checks: applicability, declared
+    dependencies, and (when ``cases`` are provided) end-to-end computation.
 
-    def test_zero_raises(self):
-        with pytest.raises(ValueError):
-            Availability(column="x", min_samples=0)
+    Attributes:
+        factory: Zero-arg callable that constructs the measure instance. A callable
+            (rather than an instance) keeps construction lazy and lets one measure class
+            appear several times with different arguments.
+        applicability: The expected ``_applicability`` of the measure class.
+        dependencies: The expected ``_dependencies`` of the measure class. Kept explicit
+            (rather than read from the class) so the test is a genuine assertion and not
+            a tautology.
+        cases: Optional end-to-end cases as ``(data, expected)`` pairs. ``data`` is the
+            column values fed through a real Pathway reduce; ``expected`` is the scalar
+            result. Measures whose output is non-deterministic or not a simple scalar
+            (e.g. sketches, ndarrays, window metadata) omit cases.
+        unordered: When ``True``, tuple-valued results are compared order-insensitively
+            (but counts still matter) — for measures whose result is a set of tied or
+            unordered values (e.g. ``Tuple``, ``MostFrequent``). Defaults to ``False``,
+            i.e. exact comparison, so order-significant measures like ``SortedTupleValue``
+            are asserted exactly.
+        expected_attrs: Optional ``{attribute_name: expected_value}`` mapping asserted on
+            the constructed instance. Covers default and normalized construction values
+            (e.g. ``Availability`` defaults ``min_samples`` to ``1``; ``FrozenNumbers``
+            normalizes a negative ``epsilon`` to its absolute value).
+        invalid_kwargs: Optional list of ``(kwargs, error_type, match)`` tuples asserting
+            that constructing the measure class with ``kwargs`` raises ``error_type`` and
+            that the error message matches the ``match`` regex fragment. Covers
+            construction-time validation of invalid arguments.
+        id: Human-readable, unique identifier used for the pytest parametrization id.
+    """
 
-    def test_negative_raises(self):
-        with pytest.raises(ValueError):
-            Availability(column="x", min_samples=-5)
+    def __init__(
+        self,
+        factory,
+        applicability,
+        dependencies,
+        cases=None,
+        unordered=False,
+        expected_attrs=None,
+        invalid_kwargs=None,
+        id=None,
+    ):
+        self.factory = factory
+        self.applicability = applicability
+        self.dependencies = dependencies
+        self.cases = cases or []
+        self.unordered = unordered
+        self.expected_attrs = expected_attrs or {}
+        self.invalid_kwargs = invalid_kwargs or []
+        self.id = id or factory().__class__.__name__
 
-    def test_error_message_includes_column(self):
-        with pytest.raises(ValueError, match="column `my_col`"):
-            Availability(column="my_col", min_samples=0)
-
-
-class TestMonotonicValidation:
-    def test_defaults(self):
-        m = Monotonic(column="x")
-        assert m.direction == "asc"
-        assert m.strict is True
-
-    def test_custom(self):
-        m = Monotonic(column="x", direction="desc", strict=False)
-        assert m.direction == "desc"
-        assert m.strict is False
-
-    def test_invalid_direction_raises(self):
-        with pytest.raises(ValueError):
-            Monotonic(column="x", direction="up")
-
-    def test_case_sensitive(self):
-        with pytest.raises(ValueError):
-            Monotonic(column="x", direction="ASC")
-
-    def test_error_message_includes_column(self):
-        with pytest.raises(ValueError, match="column `my_col`"):
-            Monotonic(column="my_col", direction="up")
-
-
-class TestMissingCountDisguisedValues:
-    def test_no_disguised(self):
-        m = MissingCount(column="x")
-        assert m._concatenate_explicit_diguised_values() == {None, ""}
-
-    def test_with_disguised(self):
-        m = MissingCount(column="x", disguised=["N/A", -999])
-        assert m._concatenate_explicit_diguised_values() == {None, "", "N/A", -999}
-
-    def test_deduplication(self):
-        m = MissingCount(column="x", disguised=[None, ""])
-        result = m._concatenate_explicit_diguised_values()
-        assert result == {None, ""}
-
-    def test_returns_set(self):
-        m = MissingCount(column="x")
-        assert isinstance(m._concatenate_explicit_diguised_values(), set)
+    @property
+    def measure_cls(self):
+        """The measure class, derived from a sample constructed instance."""
+        return type(self.factory())
 
 
-class TestMissingFractionDisguisedValues:
-    def test_no_disguised(self):
-        m = MissingFraction(column="x")
-        assert m._concatenate_explicit_diguised_values() == {None, ""}
+_ANY = DataTypeApplicability.ANY_COLUMN
+_NUM = DataTypeApplicability.NUMERIC_ONLY
+_CAT = DataTypeApplicability.CATEGORICAL_ONLY
 
-    def test_with_disguised(self):
-        m = MissingFraction(column="x", disguised=["N/A", -999])
-        assert m._concatenate_explicit_diguised_values() == {None, "", "N/A", -999}
-
-    def test_returns_set(self):
-        m = MissingFraction(column="x")
-        assert isinstance(m._concatenate_explicit_diguised_values(), set)
-
-
-class TestCorrelationValidation:
-    @pytest.mark.parametrize("method", ["pearson", "spearman", "kendall", "cramer"])
-    def test_valid_methods(self, method):
-        Correlation(column="x", other_column="y", method=method)
-
-    def test_default_method(self):
-        m = Correlation(column="x", other_column="y")
-        assert m.method == "pearson"
-
-    def test_invalid_method_raises(self):
-        with pytest.raises(NotImplementedError):
-            Correlation(column="x", other_column="y", method="invalid")
-
-
-class TestFrozenNumbersValidation:
-    def test_defaults(self):
-        m = FrozenNumbers(column="x")
-        assert m.epsilon == 0.0
-        assert m.min_samples == 1
-
-    def test_min_samples_zero_raises(self):
-        with pytest.raises(ValueError):
-            FrozenNumbers(column="x", min_samples=0)
-
-    def test_negative_epsilon_abs(self):
-        m = FrozenNumbers(column="x", epsilon=-0.5)
-        assert m.epsilon == 0.5
-
-
-class TestFrozenNumbersAreNumbersFrozen:
-    def test_all_identical(self):
-        m = FrozenNumbers(column="x", epsilon=0, min_samples=1)
-        assert m._are_numbers_frozen((5, 5, 5, 5)) is True
-
-    def test_below_min_samples(self):
-        m = FrozenNumbers(column="x", epsilon=0, min_samples=10)
-        assert m._are_numbers_frozen((5, 5, 5)) is False
-
-    def test_range_within_epsilon(self):
-        m = FrozenNumbers(column="x", epsilon=0.5, min_samples=1)
-        assert m._are_numbers_frozen((1.0, 1.1, 1.2)) is True
-
-    def test_range_exceeds_epsilon(self):
-        m = FrozenNumbers(column="x", epsilon=0.5, min_samples=1)
-        assert m._are_numbers_frozen((1.0, 1.1, 2.0)) is False
-
-    def test_single_element(self):
-        m = FrozenNumbers(column="x", epsilon=0, min_samples=1)
-        assert m._are_numbers_frozen((42,)) is True
-
-    def test_empty_below_min(self):
-        m = FrozenNumbers(column="x", epsilon=0, min_samples=1)
-        assert m._are_numbers_frozen(()) is False
-
-    def test_exact_boundary(self):
-        m = FrozenNumbers(column="x", epsilon=5, min_samples=1)
-        assert m._are_numbers_frozen((0, 5)) is True
-
-    def test_just_over_boundary(self):
-        m = FrozenNumbers(column="x", epsilon=5, min_samples=1)
-        assert m._are_numbers_frozen((0, 6)) is False
-
-    def test_negative_numbers(self):
-        m = FrozenNumbers(column="x", epsilon=8, min_samples=1)
-        assert m._are_numbers_frozen((-10, -5, -3)) is True
-
-
-class TestApplicabilityAttributes:
-    @pytest.mark.parametrize(
-        "cls",
-        [
-            Availability,
-            Constancy,
-            Count,
-            DistinctCount,
-            DistinctCountApprox,
-            DistinctFraction,
-            DistinctFractionApprox,
-            DistinctPlaceholderCount,
-            DistinctPlaceholderFraction,
-            InSetCount,
-            InSetFraction,
-            Max,
-            Min,
-            MissingCount,
-            MissingFraction,
-            Monotonic,
-            MostFrequent,
-            Ndarray,
-            SortedTupleTime,
-            SortedTupleValue,
-            Tuple,
-            UniqueCount,
-            UniqueFraction,
-            UniqueOverDistinct,
-            WindowDuration,
-            # numeric with ANY_COLUMN
-            AboveMeanFraction,
-            BestLineFitSlope,
-            Correlation,
-            InRangeCount,
-            InRangeFraction,
-            Percentiles,
-            # categorical with ANY_COLUMN
-            RegexCount,
-            RegexFraction,
+MEASURE_SPECS = [
+    # --- any_column: no dependencies ---
+    MeasureSpec(lambda: Count(column="x"), _ANY, [], [([10, 20, 10, 30], 4)]),
+    MeasureSpec(lambda: Tuple(column="x"), _ANY, [], [([1, 2, 3], (1, 2, 3))], unordered=True),
+    MeasureSpec(lambda: SortedTupleValue(column="x"), _ANY, [], [([3, 1, 2], (1, 2, 3))]),
+    MeasureSpec(lambda: Ndarray(column="x"), _ANY, []),
+    MeasureSpec(lambda: Max(column="x"), _ANY, [], [([1, 5, 3], 5)]),
+    MeasureSpec(lambda: Min(column="x"), _ANY, [], [([4, 2, 3], 2)]),
+    MeasureSpec(lambda: WindowDuration(column="x"), _ANY, []),
+    MeasureSpec(lambda: DistinctCountApprox(column="x"), _ANY, [], [([1, 1, 2, 2, 3], 3)]),
+    MeasureSpec(
+        lambda: MostFrequentApprox(column="x"),
+        _ANY,
+        [],
+        [(["a", "a", "b", "b", "c"], ("a", "b"))],
+        unordered=True,
+    ),
+    # --- any_column: depends on [Tuple] ---
+    MeasureSpec(lambda: SortedTupleTime(column="x", time_column="time"), _ANY, [Tuple]),
+    MeasureSpec(lambda: Constancy(column="x"), _ANY, [Tuple], [([1, 1, 2, 3], 2)]),
+    MeasureSpec(lambda: DistinctCount(column="x"), _ANY, [Tuple], [([10, 20, 10, 30], 3)]),
+    MeasureSpec(lambda: DistinctPlaceholderCount(column="x", placeholders=["N/A"]), _ANY, [Tuple]),
+    MeasureSpec(
+        lambda: InSetCount(column="x", allowed_values={10, 30}),
+        _ANY,
+        [Tuple],
+        [([10, 20, 10, 30], 3)],
+    ),
+    MeasureSpec(
+        lambda: Monotonic(column="x"),
+        _ANY,
+        [Tuple],
+        expected_attrs={"direction": "asc", "strict": True},
+        invalid_kwargs=[
+            ({"column": "my_col", "direction": "up"}, ValueError, "column `my_col`"),
+            ({"column": "x", "direction": "ASC"}, ValueError, None),  # case-sensitive
         ],
-        ids=lambda c: c.__name__,
-    )
-    def test_any_column(self, cls):
-        assert cls._applicability == DataTypeApplicability.ANY_COLUMN
-
-    @pytest.mark.parametrize(
-        "cls",
-        [
-            AboveMeanCount,
-            FirstDigitFreqs,
-            FrozenNumbers,
-            MaxFractionalPartLength,
-            MaxIntegerPartLength,
-            Mean,
-            MeanFractionalPartLength,
-            MeanIntegerPartLength,
-            Median,
-            MedianFractionalPartLength,
-            MedianIntegerPartLength,
-            MinFractionalPartLength,
-            MinIntegerPartLength,
-            Variance,
-            Sum,
+        id="Monotonic[defaults]",
+    ),
+    MeasureSpec(lambda: Monotonic(column="x", strict=False), _ANY, [Tuple], [([5, 5, 5, 5], True)]),
+    MeasureSpec(
+        lambda: Monotonic(column="x", direction="desc", strict=False),
+        _ANY,
+        [Tuple],
+        [([3, 3, 3], True)],
+        id="Monotonic[desc,non-strict]",
+    ),
+    MeasureSpec(
+        lambda: Monotonic(column="x", direction="desc", strict=True),
+        _ANY,
+        [Tuple],
+        [([3, 3, 3], False)],
+        id="Monotonic[desc,strict]",
+    ),
+    MeasureSpec(
+        lambda: MostFrequent(column="x"),
+        _ANY,
+        [Tuple],
+        [(["a", "a", "b", "b", "c"], ("a", "b"))],
+        unordered=True,
+    ),
+    MeasureSpec(lambda: UniqueCount(column="x"), _ANY, [Tuple], [([1, 1, 2, 3], 2)]),
+    MeasureSpec(lambda: UniqueOverDistinct(column="x"), _ANY, [Tuple]),
+    # --- any_column: depends on [Tuple, Count] ---
+    MeasureSpec(
+        lambda: DistinctFraction(column="x"), _ANY, [Tuple, Count], [([10, 20, 10, 30], 0.75)]
+    ),
+    MeasureSpec(lambda: DistinctFraction(column="x", precision=2), _ANY, [Tuple, Count]),
+    MeasureSpec(lambda: DistinctFractionApprox(column="x"), _ANY, [Tuple, Count]),
+    MeasureSpec(
+        lambda: DistinctPlaceholderFraction(column="x", placeholders=["N/A"]), _ANY, [Tuple, Count]
+    ),
+    MeasureSpec(lambda: InSetFraction(column="x", allowed_values={"a"}), _ANY, [Tuple, Count]),
+    MeasureSpec(lambda: MissingCount(column="x"), _ANY, [Tuple], [([1, None, "", 4], 2)]),
+    MeasureSpec(
+        lambda: MissingFraction(column="x"), _ANY, [Tuple, Count], [([1, None, "", 4], 0.5)]
+    ),
+    MeasureSpec(lambda: UniqueFraction(column="x"), _ANY, [Tuple, Count], [([1, 1, 2, 3], 0.5)]),
+    # --- any_column: depends on [Count] ---
+    MeasureSpec(
+        lambda: Availability(column="x"),
+        _ANY,
+        [Count],
+        [([1, 2, 3], True)],
+        expected_attrs={"min_samples": 1},
+        invalid_kwargs=[
+            ({"column": "my_col", "min_samples": 0}, ValueError, "column `my_col`"),
+            ({"column": "x", "min_samples": -5}, ValueError, None),
         ],
-        ids=lambda c: c.__name__,
-    )
-    def test_numeric_only(self, cls):
-        assert cls._applicability == DataTypeApplicability.NUMERIC_ONLY
+    ),
+    MeasureSpec(
+        lambda: Availability(column="x", min_samples=10),
+        _ANY,
+        [Count],
+        [([1, 2, 3], False)],
+        id="Availability[min_samples=10]",
+    ),
+    # --- numeric ---
+    MeasureSpec(lambda: AboveMeanCount(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: AboveMeanFraction(column="x"), _ANY, [Tuple, Count]),
+    MeasureSpec(lambda: BestLineFitSlope(column="x", time_column="t"), _ANY, [Tuple]),
+    MeasureSpec(
+        lambda: Correlation(column="x", other_column="y"),
+        _ANY,
+        [Tuple],
+        expected_attrs={"method": "pearson"},
+        invalid_kwargs=[
+            (
+                {"column": "x", "other_column": "y", "method": "invalid"},
+                NotImplementedError,
+                None,
+            ),
+        ],
+    ),
+    MeasureSpec(lambda: FirstDigitFreqs(column="x"), _NUM, [Tuple]),
+    MeasureSpec(
+        lambda: FrozenNumbers(column="x", epsilon=0),
+        _NUM,
+        [SortedTupleValue],
+        [([5, 5, 5], True), ([1, 2, 3], False)],
+        expected_attrs={"epsilon": 0.0, "min_samples": 1},
+        invalid_kwargs=[({"column": "x", "min_samples": 0}, ValueError, None)],
+    ),
+    MeasureSpec(
+        lambda: FrozenNumbers(column="x", epsilon=-0.5),
+        _NUM,
+        [SortedTupleValue],
+        expected_attrs={"epsilon": 0.5},  # negative epsilon is normalized to its abs value
+        id="FrozenNumbers[epsilon-normalization]",
+    ),
+    MeasureSpec(
+        lambda: FrozenNumbers(column="x", epsilon=5),
+        _NUM,
+        [SortedTupleValue],
+        [([1, 3, 5], True)],
+        id="FrozenNumbers[epsilon=5]",
+    ),
+    MeasureSpec(lambda: InRangeCount(column="x", low=0, high=100), _ANY, [Tuple]),
+    MeasureSpec(lambda: InRangeFraction(column="x", low=0, high=100), _ANY, [Tuple, Count]),
+    MeasureSpec(lambda: MaxFractionalPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MaxIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: Mean(column="x"), _NUM, [], [([10, 20, 30], 20.0)]),
+    MeasureSpec(
+        lambda: Mean(column="x", precision=4),
+        _NUM,
+        [],
+        [([1, 3, 3], 2.3333)],
+        id="Mean[precision=4]",
+    ),
+    MeasureSpec(lambda: MeanFractionalPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MeanIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: Median(column="x"), _NUM, [], [([10, 20, 30, 40], 25.0)]),
+    MeasureSpec(lambda: MedianFractionalPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MedianIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MinFractionalPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MinIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(lambda: Percentiles(column="x"), _ANY, [Tuple]),
+    MeasureSpec(lambda: Variance(column="x"), _NUM, [], [([2, 4, 6], 2.6666666666666665)]),
+    MeasureSpec(lambda: Sum(column="x"), _NUM, [], [([10, 20, 30], 60)]),
+    # --- categorical ---
+    MeasureSpec(lambda: MaxLength(column="x"), _CAT, [Tuple], [(["a", "bbb", "cc"], 3)]),
+    MeasureSpec(lambda: MeanLength(column="x"), _CAT, [Tuple], [(["a", "bbb"], 2.0)]),
+    MeasureSpec(lambda: MedianLength(column="x"), _CAT, [Tuple], [(["a", "bb", "ccc"], 2)]),
+    MeasureSpec(lambda: MinLength(column="x"), _CAT, [Tuple], [(["hello", "hi", "world"], 2)]),
+    MeasureSpec(
+        lambda: RegexCount(column="x", regex=r"^\d+$"),
+        _ANY,
+        [Tuple],
+        [(["123", "abc", "456"], 2)],
+    ),
+    MeasureSpec(lambda: RegexFraction(column="x", regex=r"^\d+$"), _ANY, [Tuple, Count]),
+]
 
-    @pytest.mark.parametrize(
-        "cls",
-        [MaxLength, MeanLength, MedianLength, MinLength],
-        ids=lambda c: c.__name__,
-    )
-    def test_categorical_only(self, cls):
-        assert cls._applicability == DataTypeApplicability.CATEGORICAL_ONLY
+# The concrete measure classes covered by the spec table (deduplicated, ordered).
+_MEASURE_CLASSES = list(dict.fromkeys(spec.measure_cls for spec in MEASURE_SPECS))
+
+# The abstract base classes that are exported alongside the concrete measures but are
+# not themselves measures (and therefore never appear in MEASURE_SPECS).
+_ABSTRACT_BASE_NAMES = {"DataQualityMeasure", "RoundableDataQualityMeasure"}
+
+# End-to-end cases flattened for parametrization: (measure_factory, data, expected, id).
+_END_TO_END_CASES = [
+    (spec.factory, data, expected, spec.unordered, f"{spec.id}[{i}]")
+    for spec in MEASURE_SPECS
+    for i, (data, expected) in enumerate(spec.cases)
+]
+
+# Specs that assert default/normalized attribute values on the constructed instance.
+_CONSTRUCTION_SPECS = [spec for spec in MEASURE_SPECS if spec.expected_attrs]
+
+# Invalid-argument cases flattened for parametrization:
+# (measure_class, kwargs, error_type, match, id).
+_INVALID_KWARGS_CASES = [
+    (spec.measure_cls, kwargs, error_type, match, f"{spec.id}[{i}]")
+    for spec in MEASURE_SPECS
+    for i, (kwargs, error_type, match) in enumerate(spec.invalid_kwargs)
+]
+
+
+class TestApplicability:
+    """Every measure declares the expected applicability."""
+
+    @pytest.mark.parametrize("spec", MEASURE_SPECS, ids=[s.id for s in MEASURE_SPECS])
+    def test_applicability(self, spec):
+        assert spec.factory()._applicability == spec.applicability
 
 
 class TestDependencies:
-    @pytest.mark.parametrize(
-        "cls, expected",
-        [
-            # any_column — no deps
-            (Count, []),
-            (Tuple, []),
-            (SortedTupleValue, []),
-            (SortedTupleTime, [Tuple]),
-            (Ndarray, []),
-            (Max, []),
-            (Min, []),
-            (WindowDuration, []),
-            # any_column — [Count]
-            (Availability, [Count]),
-            # any_column — [Tuple]
-            (Constancy, [Tuple]),
-            (DistinctCount, [Tuple]),
-            (DistinctCountApprox, [Tuple]),
-            (DistinctPlaceholderCount, [Tuple]),
-            (InSetCount, [Tuple]),
-            (Monotonic, [Tuple]),
-            (MostFrequent, [Tuple]),
-            (UniqueCount, [Tuple]),
-            (UniqueOverDistinct, [Tuple]),
-            # any_column — [Tuple, Count]
-            (DistinctFraction, [Tuple, Count]),
-            (DistinctFractionApprox, [Tuple, Count]),
-            (DistinctPlaceholderFraction, [Tuple, Count]),
-            (InSetFraction, [Tuple, Count]),
-            (MissingCount, [Tuple]),
-            (MissingFraction, [Tuple, Count]),
-            (UniqueFraction, [Tuple, Count]),
-            # numeric
-            (AboveMeanCount, [Tuple]),
-            (AboveMeanFraction, [Tuple, Count]),
-            (BestLineFitSlope, [Tuple]),
-            (Correlation, [Tuple]),
-            (FirstDigitFreqs, [Tuple]),
-            (FrozenNumbers, [SortedTupleValue]),
-            (InRangeCount, [Tuple]),
-            (InRangeFraction, [Tuple, Count]),
-            (MaxFractionalPartLength, [Tuple]),
-            (MaxIntegerPartLength, [Tuple]),
-            (Mean, []),
-            (MeanFractionalPartLength, [Tuple]),
-            (MeanIntegerPartLength, [Tuple]),
-            (Median, []),
-            (MedianFractionalPartLength, [Tuple]),
-            (MedianIntegerPartLength, [Tuple]),
-            (MinFractionalPartLength, []),
-            (MinIntegerPartLength, []),
-            (Percentiles, [Tuple]),
-            (Variance, []),
-            (Sum, []),
-            # categorical
-            (MaxLength, []),
-            (MeanLength, []),
-            (MedianLength, []),
-            (MinLength, [Tuple]),
-            (RegexCount, [Tuple]),
-            (RegexFraction, [Tuple, Count]),
-        ],
-        ids=lambda x: x.__name__ if isinstance(x, type) else "",
-    )
-    def test_dependencies(self, cls, expected):
-        assert cls._dependencies == expected
+    """Every measure declares the expected computation dependencies."""
+
+    @pytest.mark.parametrize("spec", MEASURE_SPECS, ids=[s.id for s in MEASURE_SPECS])
+    def test_dependencies(self, spec):
+        assert spec.factory()._dependencies == spec.dependencies
 
 
-class TestVarianceExport:
-    def test_in_numeric_all(self):
-        assert "Variance" in numeric_mod.__all__
+class TestConstruction:
+    """Measures expose the expected default and normalized attribute values."""
 
-    def test_in_measures_all(self):
-        assert "Variance" in measures_mod.__all__
-
-
-class TestInitExports:
-    def test_measures_init_all(self):
-        assert isinstance(measures_mod.__all__, list)
-        assert "Availability" in measures_mod.__all__
-        assert "DataQualityMeasure" in measures_mod.__all__
-
-    def test_any_column_init_all(self):
-        assert isinstance(any_column_mod.__all__, list)
-        assert "Availability" in any_column_mod.__all__
-        assert len(any_column_mod.__all__) == 26
-
-    def test_categorical_init_all(self):
-        assert isinstance(categorical_mod.__all__, list)
-        assert "RegexCount" in categorical_mod.__all__
-        assert len(categorical_mod.__all__) == 6
-
-    def test_numeric_init_all(self):
-        assert isinstance(numeric_mod.__all__, list)
-        assert "FrozenNumbers" in numeric_mod.__all__
-        assert len(numeric_mod.__all__) == 20
+    @pytest.mark.parametrize("spec", _CONSTRUCTION_SPECS, ids=[s.id for s in _CONSTRUCTION_SPECS])
+    def test_expected_attrs(self, spec):
+        measure = spec.factory()
+        for attr, expected in spec.expected_attrs.items():
+            assert getattr(measure, attr) == expected
 
 
-class TestGetReducerSmoke:
-    """Call get_reducer() on every measure class to verify no crashes under mocked pathway."""
+class TestValidation:
+    """Measures reject invalid constructor arguments with informative errors."""
 
     @pytest.mark.parametrize(
-        "measure_cls, kwargs",
-        [
-            # any_column — plain
-            (Availability, dict(column="x")),
-            (Constancy, dict(column="x")),
-            (Count, dict(column="x")),
-            (DistinctCount, dict(column="x")),
-            (DistinctCountApprox, dict(column="x")),
-            (DistinctPlaceholderCount, dict(column="x", placeholders=["N/A"])),
-            (InSetCount, dict(column="x", allowed_values={"a"})),
-            (Max, dict(column="x")),
-            (Min, dict(column="x")),
-            (MissingCount, dict(column="x")),
-            (Monotonic, dict(column="x")),
-            (MostFrequent, dict(column="x")),
-            (Ndarray, dict(column="x")),
-            (SortedTupleTime, dict(column="x", time_column="time")),
-            (SortedTupleValue, dict(column="x")),
-            (Tuple, dict(column="x")),
-            (UniqueCount, dict(column="x")),
-            (WindowDuration, dict(column="x")),
-            # any_column — roundable (precision=None)
-            (DistinctFraction, dict(column="x")),
-            (DistinctFractionApprox, dict(column="x")),
-            (DistinctPlaceholderFraction, dict(column="x", placeholders=["N/A"])),
-            (InSetFraction, dict(column="x", allowed_values={"a"})),
-            (MissingFraction, dict(column="x")),
-            (UniqueFraction, dict(column="x")),
-            (UniqueOverDistinct, dict(column="x")),
-            # any_column — roundable (precision=2)
-            (Correlation, dict(column="x", other_column="y")),
-            (DistinctFraction, dict(column="x", precision=2)),
-            (DistinctFractionApprox, dict(column="x", precision=2)),
-            (DistinctPlaceholderFraction, dict(column="x", placeholders=["N/A"], precision=2)),
-            (InSetFraction, dict(column="x", allowed_values={"a"}, precision=2)),
-            (MissingFraction, dict(column="x", precision=2)),
-            (UniqueFraction, dict(column="x", precision=2)),
-            (UniqueOverDistinct, dict(column="x", precision=2)),
-            # numeric — plain
-            (AboveMeanCount, dict(column="x")),
-            (FrozenNumbers, dict(column="x")),
-            (InRangeCount, dict(column="x", low=0, high=100)),
-            (MaxFractionalPartLength, dict(column="x")),
-            (MaxIntegerPartLength, dict(column="x")),
-            (MeanFractionalPartLength, dict(column="x")),
-            (MeanIntegerPartLength, dict(column="x")),
-            (Median, dict(column="x")),
-            (MedianFractionalPartLength, dict(column="x")),
-            (MedianIntegerPartLength, dict(column="x")),
-            (MinFractionalPartLength, dict(column="x")),
-            (MinIntegerPartLength, dict(column="x")),
-            # numeric — roundable (precision=None)
-            (AboveMeanFraction, dict(column="x")),
-            (BestLineFitSlope, dict(column="x", time_column="t")),
-            (FirstDigitFreqs, dict(column="x")),
-            (InRangeFraction, dict(column="x", low=0, high=100)),
-            (Mean, dict(column="x")),
-            (Percentiles, dict(column="x")),
-            (Variance, dict(column="x")),
-            (Sum, dict(column="x")),
-            # numeric — roundable (precision=2)
-            (AboveMeanFraction, dict(column="x", precision=2)),
-            (BestLineFitSlope, dict(column="x", time_column="t", precision=2)),
-            (Correlation, dict(column="x", other_column="y", precision=2)),
-            (FirstDigitFreqs, dict(column="x", precision=2)),
-            (InRangeFraction, dict(column="x", low=0, high=100, precision=2)),
-            (Mean, dict(column="x", precision=2)),
-            (Percentiles, dict(column="x", precision=2)),
-            (Variance, dict(column="x", precision=2)),
-            (Sum, dict(column="x", precision=2)),
-            # categorical — plain
-            (MaxLength, dict(column="x")),
-            (MeanLength, dict(column="x")),
-            (MedianLength, dict(column="x")),
-            (MinLength, dict(column="x")),
-            (RegexCount, dict(column="x", regex=r"^\d+$")),
-            # categorical — roundable
-            (RegexFraction, dict(column="x", regex=r"^\d+$")),
-            (RegexFraction, dict(column="x", regex=r"^\d+$", precision=2)),
-        ],
-        ids=lambda x: x.__name__ if isinstance(x, type) else "",
+        "measure_cls, kwargs, error_type, match",
+        [(cls, kwargs, err, match) for (cls, kwargs, err, match, _id) in _INVALID_KWARGS_CASES],
+        ids=[_id for (_cls, _kwargs, _err, _match, _id) in _INVALID_KWARGS_CASES],
     )
-    def test_get_reducer_does_not_raise(self, measure_cls, kwargs):
-        measure = measure_cls(**kwargs)
-        result = measure.get_reducer()
-        assert result is not None
+    def test_invalid_kwargs_raise(self, measure_cls, kwargs, error_type, match):
+        with pytest.raises(error_type, match=match):
+            measure_cls(**kwargs)
 
 
-def _compute_measure(measure, data, column="x"):
-    """Run a measure through a real Pathway reduce pipeline and return the scalar result."""
-    t = pw.debug.table_from_pandas(pd.DataFrame({column: data}))
+class TestExports:
+    """The public ``__all__`` lists stay in sync with the actual measures.
 
-    # Resolve dependency shared columns
-    dep_kwargs = {}
-    for dep_cls in measure._dependencies:
-        dep = dep_cls(column=column)
-        col_name = dep_cls._get_internal_shared_column_name(column)
-        dep_kwargs[col_name] = dep.get_reducer()
+    These assertions are driven by ``MEASURE_SPECS`` and the package structure rather than
+    hardcoded names or counts, so they self-maintain as measures are added or moved.
+    """
 
-    if dep_kwargs:
-        step1 = t.reduce(**dep_kwargs)
-        result = step1.select(result=measure.get_reducer())
-    else:
-        result = t.reduce(result=measure.get_reducer())
+    @pytest.mark.parametrize(
+        "measure_cls", _MEASURE_CLASSES, ids=[cls.__name__ for cls in _MEASURE_CLASSES]
+    )
+    def test_every_measure_is_exported(self, measure_cls):
+        # Any measure exercised by the suite must be publicly exported.
+        assert measure_cls.__name__ in measures_module.__all__
 
-    return pw.debug.table_to_pandas(result)["result"].iloc[0]
+    @pytest.mark.parametrize("base_name", sorted(_ABSTRACT_BASE_NAMES))
+    def test_abstract_bases_are_exported(self, base_name):
+        assert base_name in measures_module.__all__
+
+    def test_subpackage_union_equals_concrete_measures(self):
+        # The top-level measures package re-exports exactly the concrete measures from its
+        # subpackages and plus the abstract bases.
+        subpackage_union = (
+            set(any_column_mod.__all__) | set(numeric_mod.__all__) | set(categorical_mod.__all__)
+        )
+        concrete_top_level = set(measures_module.__all__) - _ABSTRACT_BASE_NAMES
+        assert subpackage_union == concrete_top_level
+
+    def test_no_measure_appears_in_two_subpackages(self):
+        # Each concrete measure is owned by exactly one subpackage.
+        names = (
+            list(any_column_mod.__all__) + list(numeric_mod.__all__) + list(categorical_mod.__all__)
+        )
+        assert len(names) == len(set(names))
 
 
 class TestMeasureEndToEnd:
-    """Verify actual computed results through real Pathway engine."""
+    """Compute each measure that declares end-to-end cases through the real Pathway engine.
+
+    The computation goes through the production helper ``build_measure_dag`` (the same
+    two-phase reduce/expression assembly the engine uses), so the test exercises the real
+    contract rather than re-implementing it.
+    """
 
     @pytest.mark.parametrize(
-        "measure, data, expected",
+        "factory, data, expected, unordered",
         [
-            # Measures without dependencies
-            (Count(column="x"), [10, 20, 10, 30], 4),
-            (Mean(column="x"), [10, 20, 30], 20.0),
-            (Mean(column="x"), [1, 3, 3], 2.333333333333333),
-            (Mean(column="x", precision=4), [1, 3, 3], 2.3333),
-            (Sum(column="x"), [10, 20, 30], 60),
-            (Median(column="x"), [10, 20, 30, 40], 25.0),
-            # Measures that depend on Tuple
-            (DistinctCount(column="x"), [10, 20, 10, 30], 3),
-            (Constancy(column="x"), [1, 1, 2, 3], 2),
-            (UniqueCount(column="x"), [1, 1, 2, 3], 2),
-            (Monotonic(column="x", strict=False), [5, 5, 5, 5], True),
-            (Monotonic(column="x", direction="desc", strict=False), [3, 3, 3], True),
-            (Monotonic(column="x", direction="desc", strict=True), [3, 3, 3], False),
-            (InSetCount(column="x", allowed_values={10, 30}), [10, 20, 10, 30], 3),
-            (MissingCount(column="x"), [1, None, "", 4], 2),
-            (MinLength(column="x"), ["hello", "hi", "world"], 2),
-            (RegexCount(column="x", regex=r"^\d+$"), ["123", "abc", "456"], 2),
-            # Measures that depend on Count
-            (Availability(column="x"), [1, 2, 3], True),
-            (Availability(column="x", min_samples=10), [1, 2, 3], False),
-            # Measures that depend on Tuple and Count
-            (DistinctFraction(column="x"), [10, 20, 10, 30], 0.75),
-            (MissingFraction(column="x"), [1, None, "", 4], 0.5),
-            (UniqueFraction(column="x"), [1, 1, 2, 3], 0.5),
-            # Measures that depend on SortedTupleValue
-            (FrozenNumbers(column="x", epsilon=0), [5, 5, 5], True),
-            (FrozenNumbers(column="x", epsilon=0), [1, 2, 3], False),
-            (FrozenNumbers(column="x", epsilon=5), [1, 3, 5], True),
+            (f, data, expected, unordered)
+            for (f, data, expected, unordered, _id) in _END_TO_END_CASES
         ],
-        ids=lambda x: x.__class__.__name__ if hasattr(x, "get_reducer") else "",
+        ids=[_id for (_f, _data, _expected, _unordered, _id) in _END_TO_END_CASES],
     )
-    def test_computed_result(self, measure, data, expected):
-        result = _compute_measure(measure, data)
+    def test_computed_result(self, factory, data, expected, unordered):
+        measure = factory()
+        table = pw.debug.table_from_pandas(pd.DataFrame({"x": data}))
+        result_table = build_measure_dag(table, measure)
+        result = pw.debug.table_to_pandas(result_table)["result"].iloc[0]
+
         if isinstance(expected, float):
             assert result == pytest.approx(expected)
+        elif unordered:
+            assert sorted(result) == sorted(expected)
         else:
             assert result == expected

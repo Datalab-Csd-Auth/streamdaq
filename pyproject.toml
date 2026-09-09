@@ -108,3 +108,8 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 addopts = "--cov=streamdaq --cov-report=term-missing --cov-fail-under=85"
 testpaths = ["tests"]
+filterwarnings = [
+    # Third-party deprecations triggered by importing fastapi's TestClient
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:",
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]

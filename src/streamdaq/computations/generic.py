@@ -1,10 +1,33 @@
 import operator
 from collections import Counter
 from collections.abc import Callable, Iterable
-from typing import Literal
+from typing import Any, Literal
 
 from streamdaq.utils.correlation_method import CorrelationMethod, correlation_method_to_function_map
 from streamdaq.utils.validation import ensure_iterable
+
+
+def merge_missing_values(
+    disguised: Iterable[Any] | None,
+    explicit_missing_values: Iterable[Any],
+) -> set[Any]:
+    """Combine the explicit and user-supplied "disguised" missing values into one set.
+
+    The explicit missing values (e.g. ``None`` and the empty string) are always present.
+    Any additional ``disguised`` values the user declares (e.g. ``"N/A"``, ``-999``) are
+    merged in, with duplicates removed by virtue of returning a set.
+
+    Args:
+        disguised: Extra values that should be treated as missing. May be ``None`` or empty.
+        explicit_missing_values: The always-missing baseline values.
+
+    Returns:
+        The union of explicit and disguised missing values as a set.
+    """
+    explicit = set(explicit_missing_values)
+    if not disguised:
+        return explicit
+    return explicit | set(disguised)
 
 
 def set_conformance_count(
