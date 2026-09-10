@@ -11,6 +11,7 @@ from streamdaq.checks.base import DataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
+from streamdaq.orchestration.utils import gracefully_kill
 from streamdaq.tasks.task_output import TaskOutput
 from streamdaq.utils.picklable import Lambda
 from streamdaq.utils.ui import _is_ui_up
@@ -61,6 +62,11 @@ class Task:
         self.add_window_checks(*window_checks)
 
         return self
+
+    def gracefully_kill(self, timeout_seconds: int) -> None:
+        if self._pw_process is None:
+            return
+        gracefully_kill(self._pw_process, timeout_seconds)
 
     def _start_pw_process(self) -> multiprocessing.Process:
         self._pw_process = multiprocessing.Process(target=self._pw_task_worker_function)
@@ -118,7 +124,7 @@ class Task:
             if window_table:
                 pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
 
-        pw.run()
+        pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
 
     def __construct_pw_dag(self, table: pw.Table) -> pw.Table:
         self.instant_table = self.__construct_instant_pw_dag(table) if self.instant_checks else None
@@ -173,7 +179,6 @@ class Task:
             for column in all_columns
             if column.startswith(DataQualityMeasure._streamdaq_internal_prefix)
         ]
-        print(f"{all_columns=}, {columns_to_remove=}")
         return table.without(*columns_to_remove)
 
     def __construct_window_pw_dag(self, table: pw.Table) -> pw.Table:
@@ -181,10 +186,6 @@ class Task:
         reduce_kwargs, measurement_kwargs, assessment_kwargs = (
             self.__collect_reduce_measurement_assessment_kwargs()
         )
-
-        print(f"{reduce_kwargs=}")
-        print(f"{measurement_kwargs=}")
-        print(f"{assessment_kwargs=}")
 
         # Then, use the kwargs to construct the pathway DAG
         reduced = table.windowby(
