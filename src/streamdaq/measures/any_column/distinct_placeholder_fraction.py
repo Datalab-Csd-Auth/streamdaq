@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
 import pathway as pw
 
@@ -15,7 +15,7 @@ from streamdaq.utils.picklable import Lambda
 class DistinctPlaceholderFraction(RoundableDataQualityMeasure):
     placeholders: list[Any]
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
+    _dependencies: ClassVar[list[type[RoundableDataQualityMeasure]]] = [Tuple, Count]
 
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(

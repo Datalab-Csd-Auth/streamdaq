@@ -12,7 +12,6 @@ from streamdaq.utils.picklable import Lambda
 @dataclass
 class DistinctCountApprox(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    # _dependencies: ClassVar[list[type[Self]]] = [Tuple]  TODO UPDATE TESTS
 
     def _get_distinct_count_approx_reducer_internal_name(self):
         return f"{self._streamdaq_internal_prefix}#DistinctCountApproxReducer#{self.column}"
