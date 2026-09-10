@@ -37,7 +37,7 @@ def _evb_native_schema_sniff_worker(
 
     table = get_table_function()
     pw.io.subscribe(table, on_change)
-    pw.run(monitoring_level=pw.MonitoringLevel.NONE)
+    pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
 
 
 def discover_native_evb_schema(
