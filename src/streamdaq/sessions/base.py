@@ -52,3 +52,7 @@ class Session:
         # Block the main thread and run the API
         # TODO: Create a process to run the api and not block the main thread
         uvicorn.run(app, host=host, port=port, **kwargs)
+
+    def gracefully_kill(self, timeout_seconds: int) -> None:
+        for task in self.tasks:
+            task.gracefully_kill(timeout_seconds)
