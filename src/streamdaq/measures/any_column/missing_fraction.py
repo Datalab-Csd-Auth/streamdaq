@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
 import pathway as pw
 
@@ -7,7 +7,7 @@ from streamdaq.computations.generic import merge_missing_values, set_conformance
 from streamdaq.computations.numeric import fraction
 from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.tuple import Tuple
-from streamdaq.measures.base import RoundableDataQualityMeasure
+from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 from streamdaq.utils.picklable import Lambda
 
@@ -17,7 +17,7 @@ class MissingFraction(RoundableDataQualityMeasure):
     disguised: list[Any] = field(default_factory=Lambda(lambda: []))
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _explicit_missing_values: ClassVar[list[Any | None]] = [None, ""]
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple, Count]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple, Count]
 
     def get_expression(self) -> pw.ColumnExpression:
         all_missing_values = merge_missing_values(self.disguised, self._explicit_missing_values)

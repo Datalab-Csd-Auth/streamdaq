@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
-from typing import ClassVar, Literal, Self
+from typing import ClassVar, Literal
 
 import pathway as pw
 
 from streamdaq.computations.generic import calculate_correlation
 from streamdaq.measures.any_column.tuple import Tuple
-from streamdaq.measures.base import RoundableDataQualityMeasure
+from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 
 
@@ -14,7 +14,7 @@ class Correlation(RoundableDataQualityMeasure):
     other_column: str
     method: Literal["pearson", "spearman", "kendall", "cramer"] = field(default="pearson")
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def __post_init__(self):
         valid_correlation_methods = ["pearson", "spearman", "kendall", "cramer"]

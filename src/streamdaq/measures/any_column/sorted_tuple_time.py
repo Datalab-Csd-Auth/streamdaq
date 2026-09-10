@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar, Self
+from typing import ClassVar
 
 import pathway as pw
 
@@ -17,7 +17,7 @@ def _sort_values_by_timestamp(values: tuple, timestamps: tuple) -> tuple:
 class SortedTupleTime(DataQualityMeasure):
     time_column: str
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def get_reduce_kwargs(self) -> pw.ColumnExpression:
         reduce_kwargs = super().get_reduce_kwargs()  # constructs reduce args for Tuple(self.column)
