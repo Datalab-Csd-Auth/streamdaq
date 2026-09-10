@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import ClassVar, Self
+from typing import ClassVar
 
 import pathway as pw
 
@@ -11,7 +11,7 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class Availability(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Count]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Count]
     min_samples: int = field(default=1)
 
     def __post_init__(self):

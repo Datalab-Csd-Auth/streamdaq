@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from statistics import mean
-from typing import ClassVar, Self
+from typing import ClassVar
 
 import pathway as pw
 
@@ -14,7 +14,7 @@ from streamdaq.utils.picklable import Lambda
 @dataclass
 class MeanLength(DataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.CATEGORICAL_ONLY
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple]  # TODO ADD TESTS
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(

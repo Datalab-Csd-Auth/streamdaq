@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import ClassVar, Literal, Self
+from typing import ClassVar, Literal
 
 import pathway as pw
 
@@ -15,7 +15,7 @@ class Monotonic(DataQualityMeasure):
     direction: Literal["asc", "desc"] = field(default="asc")
     strict: bool = field(default=True)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
-    _dependencies: ClassVar[list[type[Self]]] = [Tuple]
+    _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def __post_init__(self):
         if self.direction not in ("asc", "desc"):
