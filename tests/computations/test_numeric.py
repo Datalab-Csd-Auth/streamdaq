@@ -6,6 +6,7 @@ import pytest
 from streamdaq.computations.numeric import (
     are_numbers_frozen,
     compute_above_mean_count,
+    deltas,
     digit_count,
     filter_numeric,
     first_digit,
@@ -508,3 +509,18 @@ class TestAreNumbersFrozen:
     )
     def test_are_numbers_frozen(self, numbers_sorted_asc, epsilon, min_samples, expected):
         assert are_numbers_frozen(numbers_sorted_asc, epsilon, min_samples) is expected
+
+
+class TestDeltas:
+    @pytest.mark.parametrize(
+        "elements, expected",
+        [
+            ([1, 4, 9, 4], (3, 5, -5)),
+            ([10, 10, 10], (0, 0)),
+            ([5, 2], (-3,)),
+            ([5], ()),
+            ([], ()),
+        ],
+    )
+    def test_deltas(self, elements, expected):
+        assert deltas(elements) == expected

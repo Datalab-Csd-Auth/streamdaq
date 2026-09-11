@@ -10,6 +10,7 @@ from streamdaq.computations.generic import (
     merge_missing_values,
     most_frequent_elements,
     set_conformance_count,
+    sort_list_b_based_on_a,
 )
 from streamdaq.utils.correlation_method import CorrelationMethod
 
@@ -276,3 +277,18 @@ class TestMergeMissingValues:
 
     def test_duplicates_are_deduplicated(self):
         assert merge_missing_values([None, ""], [None, ""]) == {None, ""}
+
+
+class TestSortListBBasedOnA:
+    @pytest.mark.parametrize(
+        "a, b, expected",
+        [
+            ([3, 1, 2], [30, 10, 20], (10, 20, 30)),
+            ([1, 2, 3], ["x", "y", "z"], ("x", "y", "z")),
+            ([2, 1], ["second", "first"], ("first", "second")),
+            ([1], ["only"], ("only",)),
+            ([], [], ()),
+        ],
+    )
+    def test_sorts_b_by_a(self, a, b, expected):
+        assert sort_list_b_based_on_a(a, b) == expected

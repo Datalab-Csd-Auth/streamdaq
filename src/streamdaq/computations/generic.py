@@ -130,3 +130,12 @@ def calculate_correlation(
     except ValueError:
         # If the input arrays are empty or have different lengths, scipy will raise a ValueError
         return float("nan")
+
+
+def sort_list_b_based_on_a(a: Iterable[Any], b: Iterable[Any]) -> tuple[Any, ...]:
+    """Return the elements of ``b`` reordered by the sort order of ``a``."""
+    paired = sorted(zip(a, b))
+    if not paired:
+        return ()
+    _, sorted_b = zip(*paired)
+    return sorted_b
