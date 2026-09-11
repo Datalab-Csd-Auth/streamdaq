@@ -1,18 +1,23 @@
 from .above_mean_count import AboveMeanCount
 from .above_mean_fraction import AboveMeanFraction
 from .best_line_fit_slope import BestLineFitSlope
+from .deltas_tuple import DeltasTuple
 from .first_digit_freqs import FirstDigitFreqs
 from .frozen_numbers import FrozenNumbers
 from .in_range_count import InRangeCount
 from .in_range_fraction import InRangeFraction
+from .max_delta import MaxDelta
 from .max_fractional_part_length import MaxFractionalPartLength
 from .max_integer_part_length import MaxIntegerPartLength
 from .mean import Mean
+from .mean_delta import MeanDelta
 from .mean_fractional_part_length import MeanFractionalPartLength
 from .mean_integer_part_length import MeanIntegerPartLength
 from .median import Median
+from .median_delta import MedianDelta
 from .median_fractional_part_length import MedianFractionalPartLength
 from .median_integer_part_length import MedianIntegerPartLength
+from .min_delta import MinDelta
 from .min_fractional_part_length import MinFractionalPartLength
 from .min_integer_part_length import MinIntegerPartLength
 from .percentiles import Percentiles
@@ -23,18 +28,23 @@ __all__ = [
     "AboveMeanCount",
     "AboveMeanFraction",
     "BestLineFitSlope",
+    "DeltasTuple",
     "FirstDigitFreqs",
     "FrozenNumbers",
     "InRangeCount",
     "InRangeFraction",
+    "MaxDelta",
     "MaxFractionalPartLength",
     "MaxIntegerPartLength",
     "Mean",
+    "MeanDelta",
     "MeanFractionalPartLength",
     "MeanIntegerPartLength",
     "Median",
+    "MedianDelta",
     "MedianFractionalPartLength",
     "MedianIntegerPartLength",
+    "MinDelta",
     "MinFractionalPartLength",
     "MinIntegerPartLength",
     "Percentiles",

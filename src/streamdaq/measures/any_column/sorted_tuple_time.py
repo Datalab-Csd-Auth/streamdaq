@@ -3,14 +3,10 @@ from typing import ClassVar
 
 import pathway as pw
 
+from streamdaq.computations.generic import sort_list_b_based_on_a
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-
-
-def _sort_values_by_timestamp(values: tuple, timestamps: tuple) -> tuple:
-    sorted_timestamps, sorted_values = zip(*sorted(zip(timestamps, values)))
-    return sorted_values
 
 
 @dataclass
@@ -30,8 +26,8 @@ class SortedTupleTime(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            _sort_values_by_timestamp,
+            sort_list_b_based_on_a,
             tuple,
-            pw.this[Tuple._get_internal_shared_column_name(self.column)],  # values
-            pw.this[Tuple._get_internal_shared_column_name(self.time_column)],  # timestamps
+            pw.this[Tuple._get_internal_shared_column_name(self.time_column)],  # sort by timestamps
+            pw.this[Tuple._get_internal_shared_column_name(self.column)],  # return these values
         )

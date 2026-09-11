@@ -49,18 +49,23 @@ from streamdaq.measures.measure_dag import build_measure_dag
 from streamdaq.measures.numeric.above_mean_count import AboveMeanCount
 from streamdaq.measures.numeric.above_mean_fraction import AboveMeanFraction
 from streamdaq.measures.numeric.best_line_fit_slope import BestLineFitSlope
+from streamdaq.measures.numeric.deltas_tuple import DeltasTuple
 from streamdaq.measures.numeric.first_digit_freqs import FirstDigitFreqs
 from streamdaq.measures.numeric.frozen_numbers import FrozenNumbers
 from streamdaq.measures.numeric.in_range_count import InRangeCount
 from streamdaq.measures.numeric.in_range_fraction import InRangeFraction
+from streamdaq.measures.numeric.max_delta import MaxDelta
 from streamdaq.measures.numeric.max_fractional_part_length import MaxFractionalPartLength
 from streamdaq.measures.numeric.max_integer_part_length import MaxIntegerPartLength
 from streamdaq.measures.numeric.mean import Mean
+from streamdaq.measures.numeric.mean_delta import MeanDelta
 from streamdaq.measures.numeric.mean_fractional_part_length import MeanFractionalPartLength
 from streamdaq.measures.numeric.mean_integer_part_length import MeanIntegerPartLength
 from streamdaq.measures.numeric.median import Median
+from streamdaq.measures.numeric.median_delta import MedianDelta
 from streamdaq.measures.numeric.median_fractional_part_length import MedianFractionalPartLength
 from streamdaq.measures.numeric.median_integer_part_length import MedianIntegerPartLength
+from streamdaq.measures.numeric.min_delta import MinDelta
 from streamdaq.measures.numeric.min_fractional_part_length import MinFractionalPartLength
 from streamdaq.measures.numeric.min_integer_part_length import MinIntegerPartLength
 from streamdaq.measures.numeric.percentiles import Percentiles
@@ -293,6 +298,11 @@ MEASURE_SPECS = [
     MeasureSpec(lambda: Percentiles(column="x"), _ANY, [Tuple]),
     MeasureSpec(lambda: Variance(column="x"), _NUM, [], [([2, 4, 6], 2.6666666666666665)]),
     MeasureSpec(lambda: Sum(column="x"), _NUM, [], [([10, 20, 30], 60)]),
+    MeasureSpec(lambda: DeltasTuple(column="x", time_column="t"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MaxDelta(column="x", time_column="t"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MinDelta(column="x", time_column="t"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MeanDelta(column="x", time_column="t"), _NUM, [Tuple]),
+    MeasureSpec(lambda: MedianDelta(column="x", time_column="t"), _NUM, [Tuple]),
     # --- categorical ---
     MeasureSpec(lambda: MaxLength(column="x"), _CAT, [Tuple], [(["a", "bbb", "cc"], 3)]),
     MeasureSpec(lambda: MeanLength(column="x"), _CAT, [Tuple], [(["a", "bbb"], 2.0)]),

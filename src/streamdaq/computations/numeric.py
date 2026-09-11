@@ -1,11 +1,13 @@
 import math
 from collections.abc import Iterable
 from decimal import Decimal
+from itertools import pairwise
 from statistics import mean
 from typing import Any
 
 import numpy as np
 
+from streamdaq.computations.generic import sort_list_b_based_on_a
 from streamdaq.utils.validation import ensure_iterable
 
 
@@ -82,6 +84,7 @@ def percentiles_dict(
 ) -> dict[int | float, int | float]:
     elements = ensure_iterable(elements)
     percentiles = ensure_iterable(percentiles)
+
     results = np.percentile(elements, percentiles)
 
     if precision is not None:
@@ -219,3 +222,19 @@ def compute_above_mean_count(elements: Iterable[int | float]) -> int:
     elements = ensure_iterable(elements)
     m = mean(elements)
     return sum(1 for x in elements if x > m)
+
+
+def deltas(elements: Iterable[int | float]) -> tuple[int | float, ...]:
+    """Return the consecutive differences of ``elements`` (``elements[i+1] - elements[i]``).
+
+    Fewer than two elements yield an empty tuple, since no difference can be formed.
+    """
+    elements = ensure_iterable(elements)
+    return tuple(b - a for a, b in pairwise(elements))
+
+
+def compute_deltas_over_time(
+    timestamps: Iterable[int | float], values: Iterable[int | float]
+) -> tuple[int | float, ...]:
+    """Return the consecutive differences of ``values`` after ordering them by ``timestamps``."""
+    return deltas(sort_list_b_based_on_a(timestamps, values))
