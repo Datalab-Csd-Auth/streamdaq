@@ -1,5 +1,4 @@
 import multiprocessing
-import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +13,6 @@ from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.orchestration.utils import gracefully_kill
 from streamdaq.tasks.task_output import TaskOutput
 from streamdaq.utils.picklable import Lambda
-from streamdaq.utils.ui import _is_ui_up
 from streamdaq.windows.base import Window
 
 
@@ -112,17 +110,6 @@ class Task:
             ...
             # TODO PROBABLY WE NEED TO CHECK THAT THE OUTPUT IS VALID IN THE POST INIT
             # so that it is earlier than here
-
-        # --- STREAMDAQ INTERNAL MONITORING (TEE PATTERN) ---
-        if _is_ui_up():
-            os.makedirs(".streamdaq_monitoring", exist_ok=True)
-            task_id = self.name or "unnamed"
-            if instant_table:
-                pw.io.jsonlines.write(
-                    instant_table, f".streamdaq_monitoring/{task_id}_instant.jsonl"
-                )
-            if window_table:
-                pw.io.jsonlines.write(window_table, f".streamdaq_monitoring/{task_id}_window.jsonl")
 
         pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
 

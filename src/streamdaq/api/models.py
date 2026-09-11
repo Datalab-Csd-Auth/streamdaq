@@ -175,18 +175,9 @@ class WindowChecksConfig(BaseModel):
 class TaskStatus(StrEnum):
     """Lifecycle status of a task."""
 
-    DRAFT = "draft"
     RUNNING = "running"
     FINISHED = "finished"
     ERROR = "error"
-
-
-class TaskDynamicCreate(BaseModel):
-    """Payload to create or update a draft task dynamically."""
-
-    task_name: str = Field(..., description="Name of the task.")
-    window_type: str | None = Field(None, description="Window type to set.")
-    windowby_column: str | None = Field(None, description="Column to window by.")
 
 
 class TaskConfig(BaseModel):
@@ -196,7 +187,7 @@ class TaskConfig(BaseModel):
     output: OutputConfig | None = Field(None, description="Output sink configuration.")
     instant_checks: list[InstantCheckConfig] = Field(default_factory=list)
     window_checks_config: WindowChecksConfig | None = None
-    status: TaskStatus = Field(default=TaskStatus.DRAFT, description="Current lifecycle status.")
+    status: TaskStatus = Field(default=TaskStatus.RUNNING, description="Current lifecycle status.")
 
 
 class SessionStatus(BaseModel):

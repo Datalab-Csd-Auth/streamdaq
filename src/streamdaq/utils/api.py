@@ -1,5 +1,4 @@
 import functools
-from contextlib import contextmanager
 from typing import Any
 
 import pathway as pw
@@ -259,30 +258,9 @@ def _sync_task_statuses():
                     break
 
 
-def _restart_task_placeholder(task_id: str):
-    """Placeholder for dropping the pathway process and starting over."""
+def _handle_running_task(task_id: str, config: Any) -> None:
+    """Placeholder for dynamically applying a configuration change to a running task."""
     pass
-
-
-@contextmanager
-def update_task_config(task_id: str, tasks_store: Any) -> Any:
-    """Yield a task config, write it back to the store, and handle restarts if running."""
-    if task_id not in tasks_store:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
-        )
-    config = tasks_store[task_id]
-    yield config
-    tasks_store[task_id] = config
-    _handle_running_task(task_id, config)
-
-
-def _handle_running_task(task_id: str, config: Any):
-    """Handle tasks that are already running by restarting them."""
-    from streamdaq.api.models import TaskStatus
-
-    if config.status == TaskStatus.RUNNING:
-        _restart_task_placeholder(task_id)
 
 
 def _validate_for_start(config: Any) -> list[str]:
