@@ -1,21 +1,22 @@
 import json
 import logging
-import time
-from typing import Any, Dict
 from abc import ABC, abstractmethod
+from typing import Any
+
 
 class JsonFormatter(logging.Formatter):
     """
     Serializes LogRecords into single-line JSON objects.
     Dynamically extracts standard attributes and merges custom extra context.
     """
+
     def __init__(self, datefmt: str = "%Y-%m-%dT%H:%M:%S") -> None:
         # We don't rely on standard fmt strings since layout is explicitly structured JSON
         super().__init__(datefmt=datefmt)
 
     def format(self, record: logging.LogRecord) -> str:
         # Base JSON payload with standardized engineering keys
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "logger": record.name,
@@ -35,10 +36,28 @@ class JsonFormatter(logging.Formatter):
         # Dynamic Extraction: Capture any extra={...} variables passed at runtime
         # Standard LogRecord internal attributes to skip so we don't duplicate data
         reserved_attrs = {
-            "args", "asctime", "created", "exc_info", "exc_text", "filename",
-            "funcName", "levelname", "levelno", "lineno", "module", "msecs",
-            "message", "msg", "name", "pathname", "process", "processName",
-            "relativeCreated", "stack_info", "thread", "threadName"
+            "args",
+            "asctime",
+            "created",
+            "exc_info",
+            "exc_text",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "message",
+            "msg",
+            "name",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "thread",
+            "threadName",
         }
 
         for key, value in record.__dict__.items():
@@ -47,13 +66,14 @@ class JsonFormatter(logging.Formatter):
 
         return json.dumps(payload, ensure_ascii=False)
 
+
 class LogHook(ABC):
     """
     Abstract Base Class defining the v2 LogHook specification interface.
-    Subclasses must implement emission logic to stream structured telemetry 
+    Subclasses must implement emission logic to stream structured telemetry
     records to custom sinks (e.g., memory rings, persistent files, network topics).
     """
-    
+
     @abstractmethod
     def emit(self, record: logging.LogRecord, formatted_record: str) -> None:
         """
@@ -80,3 +100,33 @@ class LogHook(ABC):
         or handles outstanding background file handles.
         """
         pass
+
+
+class LogHookHandler(logging.Handler):
+    """
+    Adapts a LogHook to the standard logging.Handler interface.
+
+    LogHook.emit takes (record, formatted_record) rather than the single
+    `record` argument logging.Handler.emit expects, so nothing connects a
+    LogHook to the standard logging pipeline on its own. Wrap it in this
+    handler and attach it with `logger.addHandler(...)`, the same way you
+    would attach a FileHandler.
+    """
+
+    def __init__(self, hook: LogHook, level: int = logging.NOTSET) -> None:
+        super().__init__(level=level)
+        self.hook = hook
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            formatted_record = self.format(record)
+            self.hook.emit(record, formatted_record)
+        except Exception:
+            self.handleError(record)
+
+    def flush(self) -> None:
+        self.hook.flush()
+
+    def close(self) -> None:
+        self.hook.close()
+        super().close()
