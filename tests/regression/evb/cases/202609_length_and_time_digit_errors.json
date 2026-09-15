@@ -1,0 +1,22 @@
+{
+    "description": "Second value row has too few values, and a later row has a short (non-13-digit) timestamp.",
+    "message": {
+        "measurements": [
+            {
+                "name": "TemperatureHumidity",
+                "tags": {"plant": "StreamdaqFactory"},
+                "type": "Points",
+                "fields": ["time", "temperature", "humidity"],
+                "values": [
+                    [1645334535000, 60, 55],
+                    [1645338135000, 62],
+                    [12345, 61, 50]
+                ]
+            }
+        ]
+    },
+    "expected_errors": [
+        "2 values were found for 3 fields",
+        "had 5 digits (12345) instead of 13 digits"
+    ]
+}
