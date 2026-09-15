@@ -7,7 +7,6 @@ from streamdaq.computations.numeric import are_numbers_frozen
 from streamdaq.measures.any_column.sorted_tuple_value import SortedTupleValue
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -36,11 +35,7 @@ class FrozenNumbers(DataQualityMeasure):
         epsilon = self.epsilon
         min_samples = self.min_samples
         return pw.apply_with_type(
-            Lambda(
-                lambda numbers_sorted_asc: are_numbers_frozen(
-                    numbers_sorted_asc, epsilon, min_samples
-                )
-            ),
+            lambda numbers_sorted_asc: are_numbers_frozen(numbers_sorted_asc, epsilon, min_samples),
             bool,
             pw.this[SortedTupleValue._get_internal_shared_column_name(self.column)],
         )

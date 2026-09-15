@@ -3,8 +3,6 @@ import re
 from collections.abc import Callable
 from typing import Literal, NamedTuple, cast
 
-from streamdaq.utils.picklable import Lambda
-
 
 def extract_leading_integer(
     text: str,
@@ -106,12 +104,12 @@ def make_comparison_predicate(
     if not isinstance(threshold, (int, float)):
         raise TypeError(f"threshold must be numeric, got {type(threshold).__name__}")
     operator_map: dict[str, Callable[[int | float], bool]] = {
-        ">=": Lambda(lambda x: x >= threshold),
-        "<=": Lambda(lambda x: x <= threshold),
-        "==": Lambda(lambda x: x == threshold),
-        "!=": Lambda(lambda x: x != threshold),
-        ">": Lambda(lambda x: x > threshold),
-        "<": Lambda(lambda x: x < threshold),
+        ">=": lambda x: x >= threshold,
+        "<=": lambda x: x <= threshold,
+        "==": lambda x: x == threshold,
+        "!=": lambda x: x != threshold,
+        ">": lambda x: x > threshold,
+        "<": lambda x: x < threshold,
     }
     if operator not in operator_map:
         valid_ops = ", ".join(sorted(operator_map.keys()))

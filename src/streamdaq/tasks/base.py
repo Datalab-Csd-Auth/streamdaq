@@ -12,7 +12,6 @@ from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.orchestration.utils import gracefully_kill
 from streamdaq.tasks.task_output import TaskOutput
-from streamdaq.utils.picklable import Lambda
 from streamdaq.windows.base import Window
 
 
@@ -21,12 +20,12 @@ class Task:
     input: Callable[[Any], pw.Table]
     output: Callable[[Any], None] | TaskOutput
     name: str | None = None
-    instant_checks: list[InstantDataQualityCheck] = field(default_factory=Lambda(lambda: []))
-    window_checks: list[WindowDataQualityCheck] = field(default_factory=Lambda(lambda: []))
+    instant_checks: list[InstantDataQualityCheck] = field(default_factory=lambda: [])
+    window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
     window: Window | None = None
     windowby_column: str | None = None
-    input_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
-    output_kwargs: dict[str, Any] = field(default_factory=Lambda(lambda: {}))
+    input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
+    output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     def __post_init__(self):
         self.instant_table: pw.Table | None = None
