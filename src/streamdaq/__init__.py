@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache 2.0
 import logging as std_logging  # Alias to prevent namespace clashing during bootstrap
+
 from streamdaq.logging.managers import configure_logging
 
 # Automatically bootstrap with sensible defaults on initial package import
