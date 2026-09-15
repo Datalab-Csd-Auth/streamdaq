@@ -8,7 +8,6 @@ from streamdaq.measures.any_column.count import Count
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -23,13 +22,11 @@ class InRangeFraction(RoundableDataQualityMeasure):
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
-                Lambda(
-                    lambda elements, total_count: fraction(
-                        range_conformance_count(
-                            elements, self.low, self.high, self.inclusive_low, self.inclusive_high
-                        ),
-                        total_count,
-                    )
+                lambda elements, total_count: fraction(
+                    range_conformance_count(
+                        elements, self.low, self.high, self.inclusive_low, self.inclusive_high
+                    ),
+                    total_count,
                 ),
                 float,
                 pw.this[Tuple._get_internal_shared_column_name(self.column)],  # elements

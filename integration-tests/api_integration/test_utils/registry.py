@@ -47,7 +47,7 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
     "InSetCount": MeasureSpec({"column": CATEGORICAL, "allowed_values": ["OK"]}, ">= 2"),
     "InSetFraction": MeasureSpec({"column": CATEGORICAL, "allowed_values": ["OK"]}, ">= 0.5"),
     "Max": MeasureSpec({"column": INT}, ">= 95"),
-    "MaxDelta": MeasureSpec({"column": INT, "time_column": TIME}, ">= 16"),
+    "MaxDelta": MeasureSpec({"column": INT, "time_column": TIME}, "[16, 999)"),
     "MaxFractionalPartLength": MeasureSpec({"column": FLOAT}, ">= 3"),
     "MaxIntegerPartLength": MeasureSpec({"column": INT}, ">= 2"),
     "MaxLength": MeasureSpec({"column": TEXT}, ">= 10"),

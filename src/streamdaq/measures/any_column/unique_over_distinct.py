@@ -8,7 +8,6 @@ from streamdaq.computations.numeric import fraction
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure, RoundableDataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -19,7 +18,7 @@ class UniqueOverDistinct(RoundableDataQualityMeasure):
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
-                Lambda(lambda elements: fraction(count_singletons(elements), len(set(elements)))),
+                lambda elements: fraction(count_singletons(elements), len(set(elements))),
                 float,
                 pw.this[Tuple._get_internal_shared_column_name(self.column)],
             )

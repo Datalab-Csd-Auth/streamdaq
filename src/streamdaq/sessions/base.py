@@ -2,12 +2,11 @@ from dataclasses import dataclass, field
 from typing import Self
 
 from streamdaq.tasks.base import Task
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
 class Session:
-    tasks: list[Task] = field(default_factory=Lambda(lambda: []))
+    tasks: list[Task] = field(default_factory=lambda: [])
     name: str | None = None
 
     def __post_init__(self):

@@ -1,7 +1,17 @@
+from sys import platform
+
 import dill
 
+IS_RUNNING_ON_MAC = platform == "darwin"
 
-class Lambda:
+
+def Lambda(func):
+    if IS_RUNNING_ON_MAC:
+        return PicklableLambda(func)
+    return func
+
+
+class PicklableLambda:
     """
     A wrapper class to make lambda functions picklable using dill.
     This solves pickling errors when Pathway or other distributed systems

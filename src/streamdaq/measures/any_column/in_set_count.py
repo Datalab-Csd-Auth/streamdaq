@@ -7,7 +7,6 @@ from streamdaq.computations.generic import set_conformance_count
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -18,7 +17,7 @@ class InSetCount(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            Lambda(lambda elements: set_conformance_count(elements, self.allowed_values)),
+            lambda elements: set_conformance_count(elements, self.allowed_values),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )
