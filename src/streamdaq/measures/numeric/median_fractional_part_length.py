@@ -8,7 +8,6 @@ from streamdaq.computations.numeric import fractional_part_digit_count
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -18,7 +17,7 @@ class MedianFractionalPartLength(DataQualityMeasure):
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            Lambda(lambda elements: median(fractional_part_digit_count(elements))),
+            lambda elements: median(fractional_part_digit_count(elements)),
             float,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )

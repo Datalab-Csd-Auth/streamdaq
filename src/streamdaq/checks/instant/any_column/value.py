@@ -8,7 +8,6 @@ from streamdaq.checks.base import SingleColumnDataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.translators.string_to_callable import resolve_must_be
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -26,7 +25,7 @@ class Value(InstantDataQualityCheck, SingleColumnDataQualityCheck):
         if self.transformation is None:
             return pw.apply_with_type(predicate, bool, pw.this[self.column])
         return pw.apply_with_type(
-            Lambda(lambda value: predicate(self.transformation(value))),
+            lambda value: predicate(self.transformation(value)),
             bool,
             pw.this[self.column],
         )

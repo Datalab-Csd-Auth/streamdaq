@@ -4,8 +4,6 @@ from typing import Any
 import pathway as pw
 from fastapi import HTTPException, status
 
-from streamdaq.utils.picklable import Lambda
-
 _DTYPE_MAP: dict[str, type] = {
     "int": int,
     "float": float,
@@ -210,7 +208,7 @@ def build_parquet_input(params: dict[str, Any]):
     import pandas as pd
 
     path = params["path"]
-    return Lambda(lambda: pw.debug.table_from_pandas(pd.read_parquet(path)))
+    return lambda: pw.debug.table_from_pandas(pd.read_parquet(path))
 
 
 # --- Route helper functions ---

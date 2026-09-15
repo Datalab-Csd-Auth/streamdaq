@@ -8,7 +8,6 @@ import pathway as pw
 from streamdaq.checks.base import MultiColumnDataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -43,7 +42,7 @@ class InRowComparison(InstantDataQualityCheck, MultiColumnDataQualityCheck):
     def get_measurement_expression(self) -> pw.ColumnExpression:
         operator_function = self._resolve_operator()
         return pw.apply_with_type(
-            Lambda(lambda left, right: operator_function(left, right)),
+            lambda left, right: operator_function(left, right),
             bool,
             pw.this[self.columns[0]],
             pw.this[self.columns[1]],

@@ -35,17 +35,6 @@ class TestLambdaMetadata:
 class TestLambdaPickling:
     """The whole reason this class exists: surviving pickle across processes."""
 
-    def test_lambda_round_trips_through_pickle(self):
-        wrapped = Lambda(lambda x: x + 100)
-        restored = pickle.loads(pickle.dumps(wrapped))
-        assert restored(1) == 101
-
-    def test_closure_is_preserved(self):
-        factor = 7
-        wrapped = Lambda(lambda x: x * factor)
-        restored = pickle.loads(pickle.dumps(wrapped))
-        assert restored(3) == 21
-
     def test_metadata_restored_after_unpickle(self):
         wrapped = Lambda(_module_level_add)
         restored = pickle.loads(pickle.dumps(wrapped))

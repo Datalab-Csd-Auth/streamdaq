@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable
 
-from streamdaq.utils.picklable import Lambda
+from streamdaq.utils.picklable import Lambda, PicklableLambda
 
 
 def _parse_range_expression(expr: str) -> tuple[str, float, float] | None:
@@ -33,7 +33,9 @@ def _parse_range_expression(expr: str) -> tuple[str, float, float] | None:
     return brackets, lower_bound, upper_bound
 
 
-def _create_comparison_lambda(operator: str, threshold: float) -> Callable[[float], bool]:
+def _create_comparison_lambda(
+    operator: str, threshold: float
+) -> Callable[[float], bool] | PicklableLambda:
     """
     Create a lambda function for simple comparison operations.
 
@@ -51,11 +53,13 @@ def _create_comparison_lambda(operator: str, threshold: float) -> Callable[[floa
         ">": Lambda(lambda x: x > threshold),
         "<": Lambda(lambda x: x < threshold),
     }
+    tautology_function = Lambda(lambda _: True)
+    return operator_map.get(operator, tautology_function)
 
-    return operator_map.get(operator, Lambda(lambda x: True))
 
-
-def _create_range_lambda(brackets: str, lower: float, upper: float) -> Callable[[float], bool]:
+def _create_range_lambda(
+    brackets: str, lower: float, upper: float
+) -> Callable[[float], bool] | PicklableLambda:
     """
     Create a lambda function for range comparisons.
 
@@ -104,7 +108,7 @@ def _parse_comparison_operator(expr: str) -> tuple[str, float] | None:
     return None
 
 
-def string_to_callable(expr: str) -> Callable:
+def string_to_callable(expr: str) -> Callable | PicklableLambda:
     """
     Main function that creates a comparison function based on the input expression.
 
@@ -137,7 +141,7 @@ def string_to_callable(expr: str) -> Callable:
     raise ValueError(f"Cannot construct check function from `{expr}`.")
 
 
-def resolve_must_be(must_be: Callable | str) -> Callable:
+def resolve_must_be(must_be: Callable | str) -> Callable | PicklableLambda:
     """Resolve a ``must_be`` predicate, accepting only a callable or a parseable string.
 
     A callable is returned unchanged. A string is parsed via :func:`string_to_callable`

@@ -7,7 +7,6 @@ from streamdaq.computations.generic import is_monotonic, sort_list_b_based_on_a
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
-from streamdaq.utils.picklable import Lambda
 
 
 @dataclass
@@ -42,7 +41,7 @@ class Monotonic(DataQualityMeasure):
             return is_monotonic(values_ordered_by_time, direction, strict)
 
         return pw.apply_with_type(
-            Lambda(is_monotonic_over_time),
+            is_monotonic_over_time,
             bool,
             pw.this[Tuple._get_internal_shared_column_name(self.time_column)],
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
