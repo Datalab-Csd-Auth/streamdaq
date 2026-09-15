@@ -1,0 +1,19 @@
+{
+    "description": "First field is not 'time' — the time column must lead the fields list.",
+    "message": {
+        "measurements": [
+            {
+                "name": "TemperatureHumidity",
+                "tags": {"plant": "StreamdaqFactory"},
+                "type": "Points",
+                "fields": ["temperature", "time"],
+                "values": [
+                    [60, 1645334535000]
+                ]
+            }
+        ]
+    },
+    "expected_errors": [
+        "The first EVB field was found to be 'temperature' instead of 'time'."
+    ]
+}

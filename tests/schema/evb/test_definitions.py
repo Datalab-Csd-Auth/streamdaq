@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from streamdaq.schema.evb.definitions import (
     _VALID_TIME_DIGITS,
     EVBKeyNames,
+    SniffedEVBSchema,
     ValidatableEVBSchema,
     _EVBMeasurementType,
     _StreamdaqInternalColumnNames,
@@ -24,8 +25,6 @@ class TestStreamdaqInternalColumnNames:
     def test_enum_values_are_lowercase(self):
         assert _StreamdaqInternalColumnNames.PYDANTIC_ERRORS == "pydantic_errors"
         assert _StreamdaqInternalColumnNames.TIME == "time"
-        assert _StreamdaqInternalColumnNames.IS_TIME_FIRST_FIELD == "is_time_first_field"
-        assert _StreamdaqInternalColumnNames.IS_TIME_VALID == "is_time_valid"
         assert _StreamdaqInternalColumnNames.VALIDATION_ERRORS_REPORT == "validation_errors_report"
 
 
@@ -79,3 +78,76 @@ class TestValidatableEVBSchema:
     def test_missing_required_fields_raises(self):
         with pytest.raises(ValidationError):
             ValidatableEVBSchema(measurements=[{"name": "X"}])
+
+
+def _measurement(**overrides):
+    base = {
+        "name": "Temp",
+        "tags": {"plant": "Factory"},
+        "type": "Points",
+        "fields": ["time", "temp"],
+        "values": [[1645334535000, 60]],
+    }
+    base.update(overrides)
+    return base
+
+
+class TestEVBMeasurementValidation:
+    def test_keys_are_lowercased_before_validation(self):
+        model = ValidatableEVBSchema(
+            measurements=[
+                {
+                    "NAME": "T",
+                    "TAGS": {},
+                    "TYPE": "Points",
+                    "FIELDS": ["time", "a"],
+                    "VALUES": [[1645334535000, 1.0]],
+                }
+            ]
+        )
+        assert model.measurements[0].name == "T"
+
+    def test_non_dict_non_str_measurement_raises(self):
+        with pytest.raises(ValidationError, match="instead of JSON-'str' or 'dict'"):
+            ValidatableEVBSchema(measurements=[123])
+
+    def test_time_must_be_first_field(self):
+        with pytest.raises(ValidationError, match="first EVB field was found to be 'temp'"):
+            ValidatableEVBSchema(
+                measurements=[_measurement(fields=["temp", "time"], values=[[60, 1645334535000]])]
+            )
+
+    def test_field_and_value_lengths_must_match(self):
+        with pytest.raises(ValidationError, match=r"2 values were found for 3 fields"):
+            ValidatableEVBSchema(
+                measurements=[
+                    _measurement(fields=["time", "a", "b"], values=[[1645334535000, 1.0]])
+                ]
+            )
+
+    def test_time_value_must_have_valid_digit_count(self):
+        with pytest.raises(ValidationError, match=r"had 3 digits \(123\) instead of 13 digits"):
+            ValidatableEVBSchema(
+                measurements=[_measurement(fields=["time", "a"], values=[[123, 1.0]])]
+            )
+
+    def test_multiple_errors_are_aggregated(self):
+        with pytest.raises(ValidationError, match="Also,"):
+            ValidatableEVBSchema(
+                measurements=[_measurement(fields=["temp", "time"], values=[[60, 12]])]
+            )
+
+
+class TestSniffedEVBSchemaSerialize:
+    def test_maps_fields_to_value_types(self):
+        result = SniffedEVBSchema(
+            fields=["temperature", "count"], values=[60.0, 3], tags={}
+        ).serialize()
+        assert result["fields"] == (("temperature", float), ("count", int))
+
+    def test_no_tags_yields_empty_tuple(self):
+        assert SniffedEVBSchema(fields=["a"], values=[1.0], tags={}).serialize()["tags"] == ()
+
+    def test_tags_are_typed_as_str(self):
+        result = SniffedEVBSchema(fields=["a"], values=[1.0], tags={"plant": "F"}).serialize()
+        assert result["tags"] == (("plant", str),)

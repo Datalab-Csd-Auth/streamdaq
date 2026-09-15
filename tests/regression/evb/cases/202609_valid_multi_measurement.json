@@ -1,0 +1,27 @@
+{
+    "description": "Valid message with two measurements, multiple values per measurement, and tags.",
+    "message": {
+        "measurements": [
+            {
+                "name": "TemperatureHumidity",
+                "tags": {"plant": "StreamdaqFactory", "unit_id": "012332"},
+                "type": "Points",
+                "fields": ["time", "temperature", "humidity"],
+                "values": [
+                    [1645334535000, 60, 55],
+                    [1645338135000, 62, 54]
+                ]
+            },
+            {
+                "name": "Pressure",
+                "tags": {"plant": "StreamdaqFactory"},
+                "type": "Points",
+                "fields": ["time", "pressure"],
+                "values": [
+                    [1645334535000, 1013]
+                ]
+            }
+        ]
+    },
+    "expected_errors": []
+}

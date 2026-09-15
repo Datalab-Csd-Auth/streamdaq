@@ -19,41 +19,12 @@ class _FakeJson:
 
 
 class TestConstructValidationErrorsReport:
-    def test_all_valid_returns_none(self):
-        result = _construct_validation_errors_report_if_needed(
-            pydantic_errors="", is_time_first_field=True, is_time_valid=True
-        )
-        assert result is None
+    def test_no_errors_returns_none(self):
+        assert _construct_validation_errors_report_if_needed(pydantic_errors="") is None
 
     def test_pydantic_errors_included(self):
-        result = _construct_validation_errors_report_if_needed(
-            pydantic_errors="field required", is_time_first_field=True, is_time_valid=True
-        )
-        assert result is not None
-        assert result[_StreamdaqInternalColumnNames.PYDANTIC_ERRORS] == "field required"
-
-    def test_time_not_first_field(self):
-        result = _construct_validation_errors_report_if_needed(
-            pydantic_errors="", is_time_first_field=False, is_time_valid=True
-        )
-        assert result is not None
-        assert _StreamdaqInternalColumnNames.IS_TIME_FIRST_FIELD in result
-        assert result[_StreamdaqInternalColumnNames.IS_TIME_FIRST_FIELD] == (False,)
-
-    def test_time_invalid(self):
-        result = _construct_validation_errors_report_if_needed(
-            pydantic_errors="", is_time_first_field=True, is_time_valid=False
-        )
-        assert result is not None
-        assert _StreamdaqInternalColumnNames.IS_TIME_VALID in result
-        assert result[_StreamdaqInternalColumnNames.IS_TIME_VALID] == (False,)
-
-    def test_all_invalid_has_three_keys(self):
-        result = _construct_validation_errors_report_if_needed(
-            pydantic_errors="err", is_time_first_field=False, is_time_valid=False
-        )
-        assert result is not None
-        assert len(result) == 3
+        result = _construct_validation_errors_report_if_needed(pydantic_errors="field required")
+        assert result == {_StreamdaqInternalColumnNames.PYDANTIC_ERRORS: "field required"}
 
 
 class TestValidateWithPydantic:
@@ -88,14 +59,19 @@ class TestConvertRawEVBToNativeFormat:
             "values": [[1645334535000, 60.0, 55.0]],
         }
         table = pw.debug.table_from_rows(schema=EVBSchema, rows=[([pw.Json(evb_data)],)])
-        native_schema = (("temperature", float), ("humidity", float))
+        native_schema = {
+            "fields": (("temperature", float), ("humidity", float)),
+            "tags": (("plant", str),),
+        }
         result = convert_raw_evb_to_native_format(table, native_schema)
         df = pw.debug.table_to_pandas(result)
 
         assert len(df) == 1
-        assert df.iloc[0]["temperature"] == 60.0
-        assert df.iloc[0]["humidity"] == 55.0
-        assert df.iloc[0]["time"] == 1645334535000
-        assert df.iloc[0]["name"] == "Temp"
-        assert df.iloc[0]["type"] == "Points"
-        assert df.iloc[0]["validation_errors_report"] is None
+        row = df.iloc[0]
+        assert row["temperature"] == 60.0
+        assert row["humidity"] == 55.0
+        assert row["time"] == 1645334535000
+        assert row["name"] == "Temp"
+        assert row["type"] == "Points"
+        assert row["plant"] == "F"
+        assert row["validation_errors_report"] is None
