@@ -41,7 +41,7 @@ def set_conformance_count(
 
 def most_frequent_elements(
     elements: Iterable[int | float | str],
-) -> tuple[int | float | str, ...]:
+) -> tuple:
     elements = ensure_iterable(elements)
     counts = Counter(elements)
     if not counts:
