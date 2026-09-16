@@ -113,3 +113,6 @@ filterwarnings = [
     "ignore:Using `httpx` with `starlette.testclient` is deprecated:",
     "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
 ]
+
+[project.scripts]
+streamdaq = "streamdaq.api.cli.run:main"

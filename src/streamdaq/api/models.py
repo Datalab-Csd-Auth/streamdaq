@@ -194,3 +194,8 @@ class SessionStatus(BaseModel):
     status: Literal["running", "stopped", "failed"]
     active_tasks_count: int
     version: str
+
+
+class APIHeartbeat(BaseModel):
+    status: Literal["OK"] = "OK"
+    service: Literal["streamdaq"] = "streamdaq"
