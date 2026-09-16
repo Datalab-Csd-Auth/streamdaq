@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 
 from streamdaq.utils.picklable import Lambda
@@ -14,30 +15,22 @@ def _parse_range_expression(expr: str) -> tuple[str, float, float] | None:
         Optional[tuple[str, float, float]]: Tuple of (brackets, lower_bound, upper_bound)
         or None if invalid
     """
-    import re
-
-    # Regular expression to match range patterns
     range_pattern = r"^[\(\[]([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)[\)\]]$"
 
     match = re.match(range_pattern, expr.strip())
     if not match:
         return None
 
-    try:
-        # Extract brackets
-        brackets = expr[0] + expr[-1]
-        # Extract numbers
-        lower_bound = float(match.group(1))
-        upper_bound = float(match.group(2))
+    brackets = expr[0] + expr[-1]
+    lower_bound = float(match.group(1))
+    upper_bound = float(match.group(2))
 
-        if lower_bound >= upper_bound:
-            print("Invalid range: lower bound must be less than upper bound")
-            # TODO ADD LOGGER!
-            return None
-
-        return brackets, lower_bound, upper_bound
-    except ValueError:
+    if lower_bound >= upper_bound:
+        print("Invalid range: lower bound must be less than upper bound")
+        # TODO ADD LOGGER!
         return None
+
+    return brackets, lower_bound, upper_bound
 
 
 def _create_comparison_lambda(operator: str, threshold: float) -> Callable[[float], bool]:
@@ -142,3 +135,21 @@ def string_to_callable(expr: str) -> Callable:
 
     # If nothing matches, log warning and return identity function
     raise ValueError(f"Cannot construct check function from `{expr}`.")
+
+
+def resolve_must_be(must_be: Callable | str) -> Callable:
+    """Resolve a ``must_be`` predicate, accepting only a callable or a parseable string.
+
+    A callable is returned unchanged. A string is parsed via :func:`string_to_callable`
+    (raising ``ValueError`` if it cannot be parsed). Anything else is rejected with a
+    ``ValueError`` so invalid conditions are caught at construction time rather than at
+    runtime inside the streaming engine.
+    """
+    if callable(must_be):
+        return must_be
+    if isinstance(must_be, str):
+        return string_to_callable(must_be)
+    raise ValueError(
+        f"`must_be` must be a comparison string (e.g. '>= 2', '[1, 5]') or a callable, "
+        f"got {type(must_be).__name__}."
+    )

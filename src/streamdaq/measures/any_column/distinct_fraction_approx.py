@@ -21,10 +21,11 @@ class DistinctFractionApprox(RoundableDataQualityMeasure):
         return f"{self._streamdaq_internal_prefix}#DistinctCountApproxReducer#{self.column}"
 
     def get_reduce_kwargs(self) -> dict[str, pw.ColumnExpression]:
-        reduce_kwargs: dict[str, pw.ColumnExpression] = dict()
+        reduce_kwargs = super().get_reduce_kwargs()  # constructs reduce args for Tuple, Count
+
+        # constructs reduce args for distinct count approx reducer (numerator)
         kw = self._get_distinct_count_approx_reducer_internal_name()
-        arg = distinct_count_approx_reducer(pw.this[self.column])
-        reduce_kwargs[kw] = arg
+        reduce_kwargs[kw] = distinct_count_approx_reducer(pw.this[self.column])
         return reduce_kwargs
 
     def get_expression(self) -> pw.ColumnExpression:

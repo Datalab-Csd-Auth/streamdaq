@@ -1,6 +1,7 @@
 import operator
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 import pathway as pw
 
@@ -16,23 +17,33 @@ class InRowComparison(InstantDataQualityCheck, MultiColumnDataQualityCheck):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
 
     def __post_init__(self):
-        try:
-            self.operator = getattr(operator, self.operator)
-        except AttributeError:
-            raise ValueError(
-                f"Cannot instantiate an InRowComparison Check because operator `{self.operator}` "
-                f"is unkown. Valid options: all function names (as str, e.g., 'le') in "
-                "https://docs.python.org/3/library/operator.html"
-            )
+        self._resolve_operator()  # validate without mutating to simplify serialization to API
         if len(self.columns) != 2:
             raise ValueError(
                 f"Cannot instantiate an InRowComparison Check because the columns {self.columns} "
                 f"are not exactly 2. Please provide exactly 2 columns for this check."
             )
 
+    def _resolve_operator(self) -> Callable[[Any, Any], bool]:
+        if not isinstance(self.operator, str):
+            raise ValueError(
+                f"Cannot instantiate an InRowComparison Check because operator `{self.operator}` "
+                f"is not a string. Provide one of the operator function names (as str, e.g. 'le') "
+                "in https://docs.python.org/3/library/operator.html"
+            )
+        try:
+            return getattr(operator, self.operator)
+        except AttributeError:
+            raise ValueError(
+                f"Cannot instantiate an InRowComparison Check because operator `{self.operator}` "
+                f"is unknown. Valid options: all function names (as str, e.g., 'le') in "
+                "https://docs.python.org/3/library/operator.html"
+            )
+
     def get_measurement_expression(self) -> pw.ColumnExpression:
+        operator_function = self._resolve_operator()
         return pw.apply_with_type(
-            Lambda(lambda left, right: self.operator(left, right)),
+            Lambda(lambda left, right: operator_function(left, right)),
             bool,
             pw.this[self.columns[0]],
             pw.this[self.columns[1]],
