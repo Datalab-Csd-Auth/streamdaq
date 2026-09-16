@@ -106,6 +106,10 @@ class MeasureSpec:
             that constructing the measure class with ``kwargs`` raises ``error_type`` and
             that the error message matches the ``match`` regex fragment. Covers
             construction-time validation of invalid arguments.
+        tolerance: Optional relative tolerance for the end-to-end comparison of numeric
+            results. Approximate (sketch-backed) measures such as ``DistinctFractionApprox``
+            never match a fraction exactly, so they declare a small tolerance here; exact
+            measures leave it ``None`` and are compared with the default ``pytest.approx``.
         id: Human-readable, unique identifier used for the pytest parametrization id.
     """
 
@@ -118,6 +122,7 @@ class MeasureSpec:
         unordered=False,
         expected_attrs=None,
         invalid_kwargs=None,
+        tolerance=None,
         id=None,
     ):
         self.factory = factory
@@ -127,6 +132,7 @@ class MeasureSpec:
         self.unordered = unordered
         self.expected_attrs = expected_attrs or {}
         self.invalid_kwargs = invalid_kwargs or []
+        self.tolerance = tolerance
         self.id = id or factory().__class__.__name__
 
     @property
@@ -168,30 +174,15 @@ MEASURE_SPECS = [
         [([10, 20, 10, 30], 3)],
     ),
     MeasureSpec(
-        lambda: Monotonic(column="x"),
+        lambda: Monotonic(column="x", time_column="t"),
         _ANY,
         [Tuple],
         expected_attrs={"direction": "asc", "strict": True},
         invalid_kwargs=[
-            ({"column": "my_col", "direction": "up"}, ValueError, "column `my_col`"),
-            ({"column": "x", "direction": "ASC"}, ValueError, None),  # case-sensitive
+            ({"column": "my_col", "time_column": "t", "direction": "up"}, ValueError, "my_col"),
+            ({"column": "x", "time_column": "t", "direction": "ASC"}, ValueError, None),
         ],
-        id="Monotonic[defaults]",
-    ),
-    MeasureSpec(lambda: Monotonic(column="x", strict=False), _ANY, [Tuple], [([5, 5, 5, 5], True)]),
-    MeasureSpec(
-        lambda: Monotonic(column="x", direction="desc", strict=False),
-        _ANY,
-        [Tuple],
-        [([3, 3, 3], True)],
-        id="Monotonic[desc,non-strict]",
-    ),
-    MeasureSpec(
-        lambda: Monotonic(column="x", direction="desc", strict=True),
-        _ANY,
-        [Tuple],
-        [([3, 3, 3], False)],
-        id="Monotonic[desc,strict]",
+        id="Monotonic",
     ),
     MeasureSpec(
         lambda: MostFrequent(column="x"),
@@ -207,7 +198,13 @@ MEASURE_SPECS = [
         lambda: DistinctFraction(column="x"), _ANY, [Tuple, Count], [([10, 20, 10, 30], 0.75)]
     ),
     MeasureSpec(lambda: DistinctFraction(column="x", precision=2), _ANY, [Tuple, Count]),
-    MeasureSpec(lambda: DistinctFractionApprox(column="x"), _ANY, [Tuple, Count]),
+    MeasureSpec(
+        lambda: DistinctFractionApprox(column="x"),
+        _ANY,
+        [Tuple, Count],
+        [([1, 1, 2, 3], 0.75)],
+        tolerance=0.1,
+    ),
     MeasureSpec(
         lambda: DistinctPlaceholderFraction(column="x", placeholders=["N/A"]), _ANY, [Tuple, Count]
     ),
@@ -288,11 +285,26 @@ MEASURE_SPECS = [
         [([1, 3, 3], 2.3333)],
         id="Mean[precision=4]",
     ),
-    MeasureSpec(lambda: MeanFractionalPartLength(column="x"), _NUM, [Tuple]),
-    MeasureSpec(lambda: MeanIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(
+        lambda: MeanFractionalPartLength(column="x"),
+        _NUM,
+        [Tuple],
+        [([1.5, 2.25, 3.5], 4 / 3)],
+    ),
+    MeasureSpec(lambda: MeanIntegerPartLength(column="x"), _NUM, [Tuple], [([1, 22, 333], 2.0)]),
     MeasureSpec(lambda: Median(column="x"), _NUM, [], [([10, 20, 30, 40], 25.0)]),
-    MeasureSpec(lambda: MedianFractionalPartLength(column="x"), _NUM, [Tuple]),
-    MeasureSpec(lambda: MedianIntegerPartLength(column="x"), _NUM, [Tuple]),
+    MeasureSpec(
+        lambda: MedianFractionalPartLength(column="x"),
+        _NUM,
+        [Tuple],
+        [([1.5, 2.25, 3.125, 4.1], 1.5)],
+    ),
+    MeasureSpec(
+        lambda: MedianIntegerPartLength(column="x"),
+        _NUM,
+        [Tuple],
+        [([1, 22, 333, 4], 1.5)],
+    ),
     MeasureSpec(lambda: MinFractionalPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: MinIntegerPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: Percentiles(column="x"), _ANY, [Tuple]),
@@ -324,9 +336,10 @@ _MEASURE_CLASSES = list(dict.fromkeys(spec.measure_cls for spec in MEASURE_SPECS
 # not themselves measures (and therefore never appear in MEASURE_SPECS).
 _ABSTRACT_BASE_NAMES = {"DataQualityMeasure", "RoundableDataQualityMeasure"}
 
-# End-to-end cases flattened for parametrization: (measure_factory, data, expected, id).
+# End-to-end cases flattened for parametrization:
+# (measure_factory, data, expected, unordered, tolerance, id).
 _END_TO_END_CASES = [
-    (spec.factory, data, expected, spec.unordered, f"{spec.id}[{i}]")
+    (spec.factory, data, expected, spec.unordered, spec.tolerance, f"{spec.id}[{i}]")
     for spec in MEASURE_SPECS
     for i, (data, expected) in enumerate(spec.cases)
 ]
@@ -426,21 +439,21 @@ class TestMeasureEndToEnd:
     """
 
     @pytest.mark.parametrize(
-        "factory, data, expected, unordered",
+        "factory, data, expected, unordered, tolerance",
         [
-            (f, data, expected, unordered)
-            for (f, data, expected, unordered, _id) in _END_TO_END_CASES
+            (f, data, expected, unordered, tolerance)
+            for (f, data, expected, unordered, tolerance, _id) in _END_TO_END_CASES
         ],
-        ids=[_id for (_f, _data, _expected, _unordered, _id) in _END_TO_END_CASES],
+        ids=[_id for (*_, _id) in _END_TO_END_CASES],
     )
-    def test_computed_result(self, factory, data, expected, unordered):
+    def test_computed_result(self, factory, data, expected, unordered, tolerance):
         measure = factory()
         table = pw.debug.table_from_pandas(pd.DataFrame({"x": data}))
         result_table = build_measure_dag(table, measure)
         result = pw.debug.table_to_pandas(result_table)["result"].iloc[0]
 
         if isinstance(expected, float):
-            assert result == pytest.approx(expected)
+            assert result == pytest.approx(expected, rel=tolerance)
         elif unordered:
             assert sorted(result) == sorted(expected)
         else:

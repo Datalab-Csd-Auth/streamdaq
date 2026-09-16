@@ -15,6 +15,14 @@ class BestLineFitSlope(RoundableDataQualityMeasure):
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
+    def get_reduce_kwargs(self) -> dict[str, pw.ColumnExpression]:
+        reduce_kwargs = super().get_reduce_kwargs()  # reduce args for Tuple(self.column)
+
+        # constructs reduce args for Tuple(self.time_column)
+        additional_kw = Tuple._get_internal_shared_column_name(self.time_column)
+        reduce_kwargs[additional_kw] = Tuple(self.time_column).get_reducer()
+        return reduce_kwargs
+
     def get_expression(self) -> pw.ColumnExpression:
         return self._round_reducer_if_needed(
             pw.apply_with_type(
