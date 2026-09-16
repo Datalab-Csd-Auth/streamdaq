@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from streamdaq.api.engine import build_task
 from streamdaq.api.models import (
+    APIHeartbeat,
     SessionStatus,
     TaskConfig,
     TaskStatus,
@@ -16,7 +17,21 @@ from streamdaq.utils.api import (
     _validate_for_start,
 )
 
-router = APIRouter(prefix="/api/v1")
+API_PREFIX = "/api/v1"
+
+router = APIRouter(prefix=API_PREFIX)
+
+
+# API Heartbeat
+@router.get(
+    "/heartbeat",
+    response_model=APIHeartbeat,
+    summary="Get API status (heartbeat)",
+    tags=["Heartbeat"],
+    response_description="'OK' if the API is up and running, else no response.",
+)
+async def health_check() -> APIHeartbeat:
+    return APIHeartbeat()
 
 
 # Session
