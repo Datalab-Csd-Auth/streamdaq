@@ -1,0 +1,14 @@
+{"time":100,"value":5,"measurement":1.5,"note":"aa","status":"OK","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":true,"ic_Length":true,"ic_Regex":false,"ic_Value":true,"diff":1}
+{"time":1100,"value":10,"measurement":3.125,"note":"hello world","status":"WARN","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":false,"ic_Regex":false,"ic_Value":true,"diff":1}
+{"time":1300,"value":20,"measurement":4.75,"note":"123","status":"ERROR","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":true,"ic_Regex":true,"ic_Value":false,"diff":1}
+{"time":1500,"value":60,"measurement":12.5,"note":"","status":"OK","ic_InRange":false,"ic_InRowComparison":false,"ic_InSet":true,"ic_Length":true,"ic_Regex":false,"ic_Value":false,"diff":1}
+{"time":1700,"value":95,"measurement":14.0,"note":"45678","status":"WARN","ic_InRange":false,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":false,"ic_Regex":true,"ic_Value":false,"diff":1}
+{"time":2100,"value":-1,"measurement":5.0,"note":"note","status":"OK","ic_InRange":false,"ic_InRowComparison":true,"ic_InSet":true,"ic_Length":true,"ic_Regex":false,"ic_Value":true,"diff":1}
+{"time":2300,"value":15,"measurement":6.5,"note":"abcdef","status":"ERROR","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":false,"ic_Regex":false,"ic_Value":true,"diff":1}
+{"time":2500,"value":15,"measurement":6.5,"note":"999","status":"OK","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":true,"ic_Length":true,"ic_Regex":true,"ic_Value":true,"diff":1}
+{"time":2700,"value":22,"measurement":7.125,"note":"42","status":"WARN","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":true,"ic_Regex":true,"ic_Value":false,"diff":1}
+{"time":300,"value":5,"measurement":2.5,"note":"bb","status":"OK","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":true,"ic_Length":true,"ic_Regex":false,"ic_Value":true,"diff":1}
+{"time":3100,"value":200,"measurement":20.0,"note":"abcdefghij","status":"OK","ic_InRange":false,"ic_InRowComparison":false,"ic_InSet":true,"ic_Length":false,"ic_Regex":false,"ic_Value":false,"diff":1}
+{"time":3300,"value":120,"measurement":15.5,"note":"x","status":"ERROR","ic_InRange":false,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":true,"ic_Regex":false,"ic_Value":false,"diff":1}
+{"time":3500,"value":40,"measurement":8.0,"note":"1234567","status":"ERROR","ic_InRange":false,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":false,"ic_Regex":true,"ic_Value":false,"diff":1}
+{"time":3700,"value":5,"measurement":0.5,"note":"z","status":"ERROR","ic_InRange":true,"ic_InRowComparison":false,"ic_InSet":false,"ic_Length":true,"ic_Regex":false,"ic_Value":true,"diff":1}
