@@ -1,7 +1,7 @@
 """
 End-to-end integration test for the streamdaq API.
 
-Starts the real API (``run_api.py``) as a subprocess, submits a two-task ``bulk_create``
+Starts the real API (``streamdaq serve``) as a subprocess, submits a two-task ``bulk_create``
 payload (one sliding, one tumbling window) that exercises every instant check and every
 measure over a finite, deterministic input stream, waits for the tasks to flush their
 output files, then shuts the API down and asserts on the results.
