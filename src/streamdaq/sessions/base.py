@@ -8,6 +8,7 @@ from streamdaq.tasks.base import Task
 class Session:
     tasks: list[Task] = field(default_factory=lambda: [])
     name: str | None = None
+    files_path: str | None = None
 
     def __post_init__(self):
         import os
@@ -32,6 +33,7 @@ class Session:
     def start(self) -> Self:
         for task in self.tasks:
             # start each task as a separate process - the current (main) process remains unblocked
+            task.files_path = self.files_path
             if task._pw_process is None or not task._pw_process.is_alive():
                 task._start_pw_process()
         return self

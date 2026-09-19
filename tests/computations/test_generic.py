@@ -11,6 +11,7 @@ from streamdaq.computations.generic import (
     most_frequent_elements,
     set_conformance_count,
     sort_list_b_based_on_a,
+    sort_lists_by,
 )
 from streamdaq.utils.correlation_method import CorrelationMethod
 
@@ -292,3 +293,21 @@ class TestSortListBBasedOnA:
     )
     def test_sorts_b_by_a(self, a, b, expected):
         assert sort_list_b_based_on_a(a, b) == expected
+
+
+class TestSortListsBy:
+    @pytest.mark.parametrize(
+        "lists, key_list, desc, expected",
+        [
+            (([3, 1, 2], [30, 10, 20]), 0, False, [(1, 2, 3), (10, 20, 30)]),
+            (([3, 1, 2], [30, 10, 20]), 0, True, [(3, 2, 1), (30, 20, 10)]),
+            ((["c", "a", "b"], [3, 1, 2]), 1, False, [("a", "b", "c"), (1, 2, 3)]),
+        ],
+        ids=["asc-by0", "desc-by0", "asc-by1"],
+    )
+    def test_cosorts(self, lists, key_list, desc, expected):
+        result = sort_lists_by(*lists, key_list=key_list, desc=desc)
+        assert [tuple(column) for column in result] == expected
+
+    def test_empty_preserves_arity(self):
+        assert sort_lists_by([], []) == ((), ())

@@ -132,10 +132,13 @@ def calculate_correlation(
         return float("nan")
 
 
+def sort_lists_by(*lists, key_list=0, desc=False):
+    if not lists or not lists[0]:
+        return tuple(() for _ in lists)
+    return tuple(zip(*sorted(zip(*lists), reverse=desc, key=lambda x: x[key_list])))
+
+
 def sort_list_b_based_on_a(a: Iterable[Any], b: Iterable[Any]) -> tuple[Any, ...]:
     """Return the elements of ``b`` reordered by the sort order of ``a``."""
-    paired = sorted(zip(a, b))
-    if not paired:
-        return ()
-    _, sorted_b = zip(*paired)
+    _, sorted_b = sort_lists_by(a, b, key_list=0)
     return sorted_b

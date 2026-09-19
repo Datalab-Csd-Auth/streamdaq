@@ -5,12 +5,11 @@ from fastapi import HTTPException, status
 from pydantic import (
     BaseModel,
     Field,
-    TypeAdapter,
-    ValidationError,
     field_validator,
     model_validator,
 )
 
+from streamdaq.api.adapters import validate_coerce_params
 from streamdaq.api.registries import (
     INPUT_REGISTRY,
     INSTANT_CHECK_REGISTRY,
@@ -83,25 +82,13 @@ class InstantCheckConfig(BaseModel):
     def validate_params(self) -> "InstantCheckConfig":
         check_cls = INSTANT_CHECK_REGISTRY.get(self.check_class)
         if check_cls:
-            try:
-                validated_instance = TypeAdapter(check_cls).validate_python(
-                    {"name": self.name, **self.params}
-                )
-                import dataclasses
-
-                if dataclasses.is_dataclass(validated_instance):
-                    coerced_params = dataclasses.asdict(validated_instance)
-                    coerced_params.pop("name", None)
-                    self.params = coerced_params
-            except ValidationError as e:
-                errors = []
-                for err in e.errors():
-                    loc = ".".join(map(str, err.get("loc", [])))
-                    errors.append(f"{loc}: {err.get('msg', 'Invalid')}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid params for {self.check_class}: {'; '.join(errors)}",
-                )
+            self.params = validate_coerce_params(
+                check_cls,
+                self.params,
+                inject={"name": self.name},
+                drop=("name",),
+                label=self.check_class,
+            )
         return self
 
 
@@ -123,22 +110,7 @@ class MeasureConfig(BaseModel):
     def validate_params(self) -> "MeasureConfig":
         measure_cls = MEASURE_REGISTRY.get(self.type)
         if measure_cls:
-            try:
-                validated_instance = TypeAdapter(measure_cls).validate_python(self.params)
-                import dataclasses
-
-                if dataclasses.is_dataclass(validated_instance):
-                    coerced_params = dataclasses.asdict(validated_instance)
-                    self.params = coerced_params
-            except ValidationError as e:
-                errors = []
-                for err in e.errors():
-                    loc = ".".join(map(str, err.get("loc", [])))
-                    errors.append(f"{loc}: {err.get('msg', 'Invalid')}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid params for {self.type}: {'; '.join(errors)}",
-                )
+            self.params = validate_coerce_params(measure_cls, self.params, label=self.type)
         return self
 
 
