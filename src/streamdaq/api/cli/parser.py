@@ -29,12 +29,14 @@ class Argument:
 PORT = Argument("P", "port", int, 8080, "Port for the API server")
 HOST = Argument("H", "host", str, "127.0.0.1", "Host address for the API server")
 SESSION = Argument("S", "session", str, "streamdaq_api_session", "The streamdaq API session name")
+FILES = Argument("F", "files", str, None, "Additional files to load (e.g., custom measures)")
 
 
 def _build_serve_parser(serve_parser: argparse.ArgumentParser) -> None:
     serve_parser.add_argument(*PORT.args, **PORT.kwargs)
     serve_parser.add_argument(*HOST.args, **HOST.kwargs)
     serve_parser.add_argument(*SESSION.args, **SESSION.kwargs)
+    serve_parser.add_argument(*FILES.args, **FILES.kwargs)
     serve_parser.set_defaults(handler_function=serve)
 
 
