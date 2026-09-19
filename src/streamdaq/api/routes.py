@@ -138,6 +138,7 @@ async def create_task(task_configs: list[TaskConfig]) -> dict[str, Any]:
 
         # Build the task
         task = build_task(task_config)
+        task.files_path = session.files_path
 
         # Add to the running session
         session.add_tasks(task)

@@ -4,15 +4,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Self
 
+import dill
 import pathway as pw
 
 from streamdaq.checks.base import DataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
-from streamdaq.orchestration.utils import gracefully_kill
+from streamdaq.orchestration.utils import gracefully_kill, load_additional_files
 from streamdaq.tasks.task_output import TaskOutput
 from streamdaq.windows.base import Window
+
+
+def _run_task_in_worker(files_path: str | None, task_payload: bytes) -> None:
+    # Reload user files before deserializing the task for MacOS multiprocessing compatibility
+    if files_path:
+        load_additional_files(files_path)
+
+    task = dill.loads(task_payload)
+    task._pw_task_worker_function()
 
 
 @dataclass
@@ -26,6 +36,7 @@ class Task:
     windowby_column: str | None = None
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
+    files_path: str | None = None
 
     def __post_init__(self):
         self.instant_table: pw.Table | None = None
@@ -65,8 +76,11 @@ class Task:
             return
         gracefully_kill(self._pw_process, timeout_seconds)
 
-    def _start_pw_process(self) -> multiprocessing.Process:
-        self._pw_process = multiprocessing.Process(target=self._pw_task_worker_function)
+    def _start_pw_process(self) -> None:
+        task_payload = dill.dumps(self)
+        self._pw_process = multiprocessing.Process(
+            target=_run_task_in_worker, args=(self.files_path, task_payload)
+        )
         self._pw_process.start()
 
     def _pw_task_worker_function(self):

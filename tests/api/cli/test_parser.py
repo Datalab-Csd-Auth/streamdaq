@@ -23,6 +23,18 @@ class TestBuildParser:
         args = build_parser().parse_args(["serve", "-H", "0.0.0.0", "-P", "9000", "-S", "s"])
         assert (args.host, args.port, args.session) == ("0.0.0.0", 9000, "s")
 
+    def test_serve_files_long(self):
+        args = build_parser().parse_args(["serve", "--files", "custom.py"])
+        assert args.files == "custom.py"
+
+    def test_serve_files_short(self):
+        args = build_parser().parse_args(["serve", "-F", "custom.py"])
+        assert args.files == "custom.py"
+
+    def test_serve_files_default_none(self):
+        args = build_parser().parse_args(["serve"])
+        assert args.files is None
+
     def test_status_defaults_and_handler(self):
         args = build_parser().parse_args(["status"])
         assert args.command == "status"
