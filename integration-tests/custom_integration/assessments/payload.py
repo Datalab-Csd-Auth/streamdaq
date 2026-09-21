@@ -1,17 +1,18 @@
-"""Builds the ``bulk_create`` payload for the custom-measure integration suite."""
+"""Builds the ``bulk_create`` payload for the custom-assessment integration suite."""
 
 from custom_integration.stream import MEASUREMENT, STATUS, TIME
 
 _MODULE = "custom_integration.stream"
 _CLASS = "FiniteCustomStream"
 MEASURE_TYPE = "MaxDropBetweenOkReadings"
+ASSESSMENT_NAME = "IsDropSpike"
 
 
 def build_request_payload(output_filename: str) -> list[dict]:
-    """Single tumbling-window task exercising the custom measure."""
+    """Single tumbling-window task whose check resolves must_be via a custom assessment."""
     return [
         {
-            "name": "custom_tumbling",
+            "name": "assessment_tumbling",
             "windowby_column": TIME,
             "input": {
                 "type": "python_connector",
@@ -31,9 +32,9 @@ def build_request_payload(output_filename: str) -> list[dict]:
                 "window": {"type": "tumbling", "params": {"duration": 1000}},
                 "checks": [
                     {
-                        "name": "wc_max_drop",
+                        "name": "wc_drop_spike",
                         "measure": {"type": MEASURE_TYPE},
-                        "must_be": ">= 2",
+                        "must_be": ASSESSMENT_NAME,
                     }
                 ],
             },

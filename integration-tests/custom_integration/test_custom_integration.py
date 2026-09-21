@@ -1,10 +1,12 @@
 """
-End-to-end integration test for the feature of custom user code through decorators.
+End-to-end integration tests for custom user code loaded through ``streamdaq serve --files``.
 
-Starts the streamdaq API with user files (``streamdaq serve --files``) to verify
-that custom user code is properly registered and remains usable through the API
-as any other built-in measure. Verifies this by runnind a deterministic
-finite stream and then comparing the output against the expected one.
+Both a custom ``@measure`` and a custom ``@assessment`` are registered from the shared
+``user_files`` and driven over the API against the same deterministic finite stream. The
+measure task asserts a built-in grammar ``must_be`` over the custom measure's value; the
+assessment task's ``must_be`` is a registered assessment name, proving registry-first
+resolution survives the ``--files`` spawn reload. Each task's window output is compared
+against its expected output.
 """
 
 import os
@@ -19,15 +21,22 @@ from utils import (
     wait_until,
 )
 
-from custom_integration.measures.payload import build_request_payload
+from custom_integration.assessments.payload import build_request_payload as build_assessment_payload
+from custom_integration.measures.payload import build_request_payload as build_measure_payload
 from streamdaq.api.utils import API_PREFIX
 
-EXPECTED_OUTPUT_DIR = Path(__file__).resolve().parent / "expected_output"
+SUITE_DIR = Path(__file__).resolve().parent
 SHOULD_UPDATE = os.getenv("STREAMDAQ_UPDATE_EXPECTED_OUTPUT") == "1"
-USER_FILES_DIR = str(Path(__file__).resolve().parent / "user_files")
+USER_FILES_DIR = str(SUITE_DIR / "user_files")
 
-OUTPUT_FILE_CREATION_TIMEOUT_SECONDS = 30.0
+OUTPUT_ROWS_TIMEOUT_SECONDS = 60.0
 EXPECTED_WINDOW_ROWS = 2
+
+
+def count_nonempty_lines(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for line in path.read_text().splitlines() if line.strip())
 
 
 @pytest.fixture
@@ -36,10 +45,18 @@ def api_server(request, tmp_path):
         yield api
 
 
-class TestCustomMeasureEndToEnd:
-    def test_tumbling_window_custom_measure(self, api_server: RunningApi):
+class TestCustomUserCodeEndToEnd:
+    @pytest.mark.parametrize(
+        "build_payload, expected_output_dir",
+        [
+            (build_measure_payload, SUITE_DIR / "measures" / "expected_output"),
+            (build_assessment_payload, SUITE_DIR / "assessments" / "expected_output"),
+        ],
+        ids=["custom_measure", "custom_assessment"],
+    )
+    def test_tumbling_window(self, api_server: RunningApi, build_payload, expected_output_dir):
         work_dir = api_server.work_dir
-        payload = build_request_payload("output.jsonl")
+        payload = build_payload("output.jsonl")
 
         status, body = http_post_json(f"{api_server.base_url}{API_PREFIX}/bulk_create", payload)
         assert status == 201, f"bulk_create failed: {status} {body}"
@@ -47,13 +64,13 @@ class TestCustomMeasureEndToEnd:
         output_path = work_dir / "output_window.jsonl"
         try:
             wait_until(
-                lambda: output_path.exists(),
-                OUTPUT_FILE_CREATION_TIMEOUT_SECONDS,
-                "the output file to be populated by streamdaq API",
+                lambda: count_nonempty_lines(output_path) >= EXPECTED_WINDOW_ROWS,
+                OUTPUT_ROWS_TIMEOUT_SECONDS,
+                f"the window output to reach {EXPECTED_WINDOW_ROWS} rows",
             )
         except TimeoutError as e:
             raise AssertionError(f"{e}. Server log:\n{api_server.server_log()}") from e
 
         verify_output_matches_expected(
-            EXPECTED_OUTPUT_DIR, "tumbling_window", output_path, update=SHOULD_UPDATE
+            expected_output_dir, "tumbling_window", output_path, update=SHOULD_UPDATE
         )
