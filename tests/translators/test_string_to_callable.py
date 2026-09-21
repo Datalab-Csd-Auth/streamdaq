@@ -6,7 +6,8 @@ into predicate callables using regex parsing (no ``eval``).
 
 import pytest
 
-from streamdaq.translators.string_to_callable import string_to_callable
+from streamdaq.custom import assessment
+from streamdaq.translators.string_to_callable import resolve_must_be, string_to_callable
 
 
 class TestComparisonExpressions:
@@ -63,3 +64,46 @@ class TestInvalidExpressions:
     def test_inverted_or_empty_range_raises(self, expr):
         with pytest.raises(ValueError, match="Cannot construct check function"):
             string_to_callable(expr)
+
+
+class TestResolveMustBe:
+    def test_callable_is_returned_unchanged(self):
+        def predicate(value):
+            return value > 0
+
+        assert resolve_must_be(predicate) is predicate
+
+    @pytest.mark.parametrize(
+        "expr, satisfied, not_satisfied",
+        [
+            (">= 2", 3, 1),
+            ("<= 10", 10, 11),
+            ("[1, 5]", 1, 6),
+            ("[1, 5]", 5, 0),
+            ("(1, 5)", 4, 5),
+            ("(1, 5)", 4, 1),
+        ],
+    )
+    def test_grammar_strings_still_parse(self, expr, satisfied, not_satisfied):
+        predicate = resolve_must_be(expr)
+        assert predicate(satisfied) is True
+        assert predicate(not_satisfied) is False
+
+    def test_registered_name_resolves_to_its_predicate(self):
+        @assessment(name="IsDropSpike")
+        def _is_drop_spike(reading):
+            return reading >= 2.0
+
+        predicate = resolve_must_be("IsDropSpike")
+
+        assert predicate(3.0) is True
+        assert predicate(1.0) is False
+
+    @pytest.mark.parametrize("unknown", ["unknown", "not_registered", "??"])
+    def test_unknown_string_raises_valueerror_mentioning_both_paths(self, unknown):
+        with pytest.raises(ValueError) as exc_info:
+            resolve_must_be(unknown)
+
+        message = str(exc_info.value)
+        assert "registered assessment" in message
+        assert "comparison/range expression" in message
