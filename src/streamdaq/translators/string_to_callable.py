@@ -1,6 +1,7 @@
 import re
 from collections.abc import Callable
 
+from streamdaq.assessments.registry import ASSESSMENT_REGISTRY
 from streamdaq.utils.picklable import Lambda, PicklableLambda
 
 
@@ -144,16 +145,25 @@ def string_to_callable(expr: str) -> Callable | PicklableLambda:
 def resolve_must_be(must_be: Callable | str) -> Callable | PicklableLambda:
     """Resolve a ``must_be`` predicate, accepting only a callable or a parseable string.
 
-    A callable is returned unchanged. A string is parsed via :func:`string_to_callable`
-    (raising ``ValueError`` if it cannot be parsed). Anything else is rejected with a
-    ``ValueError`` so invalid conditions are caught at construction time rather than at
-    runtime inside the streaming engine.
+    A callable is returned unchanged. A string is resolved against
+    :data:`ASSESSMENT_REGISTRY` first, then parsed via :func:`string_to_callable`.
+    If neither of them returns a match, the value is rejected with a ``ValueError``.
     """
     if callable(must_be):
         return must_be
     if isinstance(must_be, str):
-        return string_to_callable(must_be)
+        if must_be in ASSESSMENT_REGISTRY:
+            return ASSESSMENT_REGISTRY[must_be]
+        try:
+            return string_to_callable(must_be)
+        except ValueError:
+            raise ValueError(
+                f"`{must_be}` is not a registered assessment "
+                f"(available: {sorted(ASSESSMENT_REGISTRY)}) and is not a valid "
+                f"comparison/range expression (e.g. '>= 2', '[1, 5]')."
+            ) from None
     raise ValueError(
-        f"`must_be` must be a comparison string (e.g. '>= 2', '[1, 5]') or a callable, "
-        f"got {type(must_be).__name__}."
+        f"`must_be` must be a comparison string (e.g. '>= 2', '[1, 5]'), a custom function "
+        "registered with the ``@assessment`` decorator, or a callable; "
+        f"got {type(must_be).__name__} instead."
     )

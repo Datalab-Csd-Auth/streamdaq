@@ -6,7 +6,7 @@ import pathway as pw
 
 from streamdaq.checks.base import DataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
-from streamdaq.translators.string_to_callable import string_to_callable
+from streamdaq.translators.string_to_callable import resolve_must_be
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
 
 
@@ -20,7 +20,7 @@ class WindowDataQualityCheck(DataQualityCheck):
         if self.must_be is None or isinstance(self.must_be, Callable):
             return
 
-        self.must_be = string_to_callable(str(self.must_be))
+        self.must_be = resolve_must_be(self.must_be)
 
     def get_reduce_kwargs(self) -> dict[str, pw.ColumnExpression]:
         reduce_kwargs = self.measure.get_reduce_kwargs()

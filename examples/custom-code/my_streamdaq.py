@@ -1,6 +1,6 @@
 from typing import Any
 
-from streamdaq.custom import measure
+from streamdaq.custom import assessment, measure
 
 
 @measure(
@@ -26,3 +26,8 @@ def max_drop_between_ok_readings(data: dict[str, list[Any]]) -> float:
 
     # Return the measure value. If ``must_be`` is provided, it will run on this return value
     return max(drops) if drops else 0.0
+
+
+@assessment(name="IsWithinTolerance")
+def is_within_tolerance(value: float) -> bool:
+    return abs(value) <= 5 or value > 100

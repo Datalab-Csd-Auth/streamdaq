@@ -17,6 +17,7 @@ from streamdaq.api.registries import (
     OUTPUT_REGISTRY,
     WINDOW_REGISTRY,
 )
+from streamdaq.translators.string_to_callable import resolve_must_be
 
 
 class InputConfig(BaseModel):
@@ -121,7 +122,19 @@ class WindowCheckConfig(BaseModel):
         default=None, description="Condition that the measure must satisfy (e.g., '[1, 4]', '>=2')."
     )
 
-    # TODO: Add a model_validator to validate the must_be condition.
+    @field_validator("must_be")
+    @classmethod
+    def validate_must_be(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        try:
+            resolve_must_be(value)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error),
+            ) from error
+        return value
 
 
 class WindowConfig(BaseModel):
