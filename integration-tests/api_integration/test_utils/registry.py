@@ -35,12 +35,14 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
     "Constancy": MeasureSpec({"column": INT}, ">= 2"),
     "Correlation": MeasureSpec({"column": INT, "other_column": FLOAT}, ">= 0.99"),
     "Count": MeasureSpec({"column": INT}, ">= 4"),
+    "DeltasTuple": MeasureSpec({"column": INT, "time_column": TIME}, "has_positive_jump"),
     "DistinctCount": MeasureSpec({"column": INT}, ">= 3"),
     "DistinctCountApprox": MeasureSpec({"column": INT}, ">= 3"),
     "DistinctFraction": MeasureSpec({"column": INT}, ">= 0.75"),
     "DistinctFractionApprox": MeasureSpec({"column": INT}, ">= 0.7"),
     "DistinctPlaceholderCount": MeasureSpec({"column": INT, "placeholders": [-1]}, ">= 1"),
     "DistinctPlaceholderFraction": MeasureSpec({"column": INT, "placeholders": [-1]}, ">= 0.1"),
+    "FirstDigitFreqs": MeasureSpec({"column": INT}, "leading_digit_one_present"),
     "FrozenNumbers": MeasureSpec({"column": INT, "epsilon": 0, "min_samples": 1}, ">= 1"),
     "InRangeCount": MeasureSpec({"column": INT, "low": 0, "high": 25}, ">= 3"),
     "InRangeFraction": MeasureSpec({"column": INT, "low": 0, "high": 25}, ">= 0.75"),
@@ -69,9 +71,18 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
     "MissingCount": MeasureSpec({"column": TEXT}, ">= 1"),
     "MissingFraction": MeasureSpec({"column": TEXT}, ">= 0.25"),
     "Monotonic": MeasureSpec({"column": INT, "time_column": TIME}, ">= 1"),
+    "MostFrequent": MeasureSpec({"column": CATEGORICAL}, "contains_ok"),
+    "MostFrequentApprox": MeasureSpec({"column": CATEGORICAL}, "contains_ok"),
+    "Ndarray": MeasureSpec({"column": INT}, "array_max_at_least_100"),
+    "Percentiles": MeasureSpec({"column": INT}, "median_at_least_20"),
     "RegexCount": MeasureSpec({"column": TEXT, "regex": r"^\d+$"}, ">= 2"),
     "RegexFraction": MeasureSpec({"column": TEXT, "regex": r"^\d+$"}, ">= 0.5"),
+    "SortedTupleTime": MeasureSpec(
+        {"column": INT, "time_column": TIME}, "ends_higher_than_it_starts"
+    ),
+    "SortedTupleValue": MeasureSpec({"column": INT}, "value_span_at_least_50"),
     "Sum": MeasureSpec({"column": INT}, ">= 185"),
+    "Tuple": MeasureSpec({"column": INT}, "has_enough_samples"),
     "UniqueCount": MeasureSpec({"column": INT}, ">= 4"),
     "UniqueFraction": MeasureSpec({"column": INT}, ">= 1"),
     "UniqueOverDistinct": MeasureSpec({"column": INT}, ">= 1"),
@@ -80,20 +91,7 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
 
 # Measures deliberately not covered as window checks temporarily.
 # TODO Enable them once https://github.com/Datalab-Csd-Auth/streamdaq/issues/16 is implemented
-EXCLUDED_MEASURES: frozenset[str] = frozenset(
-    {
-        "DeltasTuple",
-        "FirstDigitFreqs",
-        "MostFrequent",
-        "MostFrequentApprox",
-        "Ndarray",
-        "Percentiles",
-        "SortedTupleTime",
-        "SortedTupleValue",
-        "Tuple",
-        "WindowDuration",
-    }
-)
+EXCLUDED_MEASURES: frozenset[str] = frozenset({"WindowDuration"})
 
 # TODO Add 'Row' is excluded when implemented at the source code level.
 INSTANT_CHECK_SPECS: dict[str, InstantCheckSpec] = {

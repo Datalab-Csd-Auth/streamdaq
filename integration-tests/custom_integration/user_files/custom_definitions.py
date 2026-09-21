@@ -1,6 +1,6 @@
 from typing import Any
 
-from streamdaq.custom import measure
+from streamdaq.custom import assessment, measure
 
 
 @measure(
@@ -20,3 +20,9 @@ def max_drop_between_ok_readings(data: dict[str, list[Any]]) -> float:
     ]
     drops = [prev - curr for prev, curr in zip(ok_values, ok_values[1:])]
     return max(drops) if drops else 0.0
+
+
+@assessment(name="IsDropSpike")
+def is_drop_spike(value: float) -> bool:
+    """A window's max drop counts as a spike when it is at least two units."""
+    return value >= 2.0

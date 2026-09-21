@@ -26,6 +26,7 @@ from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.api.utils import API_PREFIX
 
 EXPECTED_OUTPUT_DIR = Path(__file__).resolve().parent / "expected_output"
+USER_FILES_DIR = Path(__file__).resolve().parent / "user_files"
 SHOULD_UPDATE_EXPECTED_OUTPUT = os.getenv("STREAMDAQ_UPDATE_EXPECTED_OUTPUT") == "1"
 
 OUTPUT_FILES_CREATION_TIMEOUT_SECONDS = 60.0
@@ -33,7 +34,7 @@ OUTPUT_FILES_CREATION_TIMEOUT_SECONDS = 60.0
 
 @pytest.fixture
 def api_server(request, tmp_path):
-    with get_running_streamdaq_api(tmp_path, request) as api:
+    with get_running_streamdaq_api(tmp_path, request, files=str(USER_FILES_DIR)) as api:
         yield api
 
 
