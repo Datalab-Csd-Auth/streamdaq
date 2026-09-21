@@ -1,7 +1,7 @@
 import pytest
 
-from streamdaq.api.cli.handlers import serve, status
-from streamdaq.api.cli.parser import build_parser
+from streamdaq.cli.handlers import serve, status
+from streamdaq.cli.parser import build_parser
 
 
 class TestBuildParser:

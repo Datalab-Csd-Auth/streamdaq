@@ -112,4 +112,4 @@ filterwarnings = [
 ]
 
 [project.scripts]
-streamdaq = "streamdaq.api.cli.run:main"
+streamdaq = "streamdaq.cli.run:main"

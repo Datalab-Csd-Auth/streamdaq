@@ -1,4 +1,4 @@
-from streamdaq.api.cli.parser import build_parser
+from streamdaq.cli.parser import build_parser
 
 
 def main():

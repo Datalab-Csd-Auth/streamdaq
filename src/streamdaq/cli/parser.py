@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Any
 
-from streamdaq.api.cli.handlers import serve, status
+from streamdaq.cli.handlers import serve, status
 
 
 @dataclass
