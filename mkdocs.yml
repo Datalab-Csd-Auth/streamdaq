@@ -53,5 +53,10 @@ markdown_extensions:
   - pymdownx.tilde
 nav:
   - Home: index.md
+  - Concepts:
+    - Overview: concepts/index.md
+    - Stream-first Data Quality: concepts/data-quality.md
+    - Real-time Monitoring: concepts/real-time-monitoring.md
+    - Compact vs Native Data Formats: concepts/compact-vs-native-data.md
   - Plug-and-play Examples:
     - notebooks/starting_example.ipynb
