@@ -2,33 +2,48 @@
 
 _Data quality monitoring for unbounded streams. **Made eas{~~y~>ier~~}.**_
 
+### Installation
+```bash
+pip install streamdaq
+```
+
+!!! annotate note
+    You can verify installation with `#!bash pip show streamdaq`. You can download a specific
+    version with `#!bash pip install --update streamdaq==<your_desired_version>`.
+
+
 ### TL;DR
 
 `streamdaq` allows you to monitor the quality of your data streams in just a few lines of Python code.
-Before we dive into the details, here is a complete example. Easy, isn't it?
+Before we dive into the details, here is a complete example. Easy, isn't it?  (1)
+{ .annotate }
+
+1.  :man_raising_hand: This is an example annotation in **plain text**.
 
 
-```py
+```py { .yaml .annotate }
 # pip install streamdaq
 
 from streamdaq import StreamDaQ, DaQMeasures as dqm, Windows
 
 # Step 1: Configure your monitoring setup
-daq = StreamDaQ().configure(
+daq = StreamDaQ().configure(  # (1)!
     window=Windows.tumbling(3),
     instance="user_id",
     time_column="timestamp",
     wait_for_late=1,
-    time_format='%Y-%m-%d %H:%M:%S'
+    time_format="%Y-%m-%d %H:%M:%S",
 )
 
 # Step 2: Define what Data Quality means for you
-daq.check(dqm.count('interaction_events'), assess="(5, 15]", name="count") \
-   .check(dqm.max('interaction_events'), assess=">5.09", name="max_interact") \
-
+daq.check(dqm.count("interaction_events"), assess="(5, 15]", name="count").check(
+    dqm.max("interaction_events"), assess=">5.09", name="max_interact"
+)
 # Step 3: Start monitoring and let Stream DaQ do the work
 daq.watch_out()
 ```
+
+1.  This is an example annotation in `#!python code` `#!python range()`
 
 ??? code-output "Output"
     ```

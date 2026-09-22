@@ -1,5 +1,5 @@
 :root  > * {
-  --md-primary-fg-color:        #9c26c7; /* rgb(155, 38, 199), used below */
+  --md-primary-fg-color:        #305CDE; /* rgb(48,92,222), used below */
 }
 
 :root {
@@ -11,7 +11,7 @@
 }
 .md-typeset .code-output > .admonition-title,
 .md-typeset .code-output > summary {
-  background-color: rgba(155, 38, 199, 0.1);
+  background-color: rgba(rgb(89, 181 247), 0.3);
 }
 .md-typeset .code-output > .admonition-title::before,
 .md-typeset .code-output > summary::before {
