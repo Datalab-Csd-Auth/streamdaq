@@ -7,6 +7,9 @@ theme:
   name: material
   features:
     - navigation.footer
+    - content.code.select
+    - content.code.annotate
+    - content.code.copy
   palette:
     - scheme: default
       toggle:
@@ -18,6 +21,8 @@ theme:
         name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
+    annotation: material/arrow-right-circle
+
   font:
     text: Nunito
     code: JetBrains Mono
@@ -47,11 +52,21 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.caret
   - pymdownx.critic
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.mark
   - pymdownx.superfences
   - pymdownx.tilde
 nav:
   - Home: index.md
-  - Plug-and-play Examples:
+  - Concepts:
+    - Overview: concepts/index.md
+    - Stream-first Data Quality: concepts/data-quality.md
+    - Real-time Monitoring: concepts/real-time-monitoring.md
+    - Compact vs Native Data Formats: concepts/compact-vs-native-data.md
+  - Code Examples:
     - notebooks/starting_example.ipynb
