@@ -121,7 +121,7 @@ In this simple example, we define three different data quality checks:
 - the most frequent values (`most_frequent`): we expect number 7 to be frequent;
 - the number of distinct values (`number_of_distinct_approx`): we expect the distict values to be exactly 9 (`==9`).
 
-These checks are monitored in real time for every stream window. Windows can be tumbling, sliding, or session-based and are 
+These checks are monitored in real time for every stream window. Windows can be tumbling, sliding, or session-based and are
 a fundamental notion of the *Stream DaQ* ecosystem. That's why *Stream DaQ* gives you full control on configuring windows
 that are suitable for your use-case!
 
@@ -130,14 +130,14 @@ The monitoring results are reported in real time, as a meta stream. That is, eve
 object itself, as following:
 
 ```markdown
-user_id | window_start | window_end   | count       | max_interact | med_interact | freq_interact   
-UserA   | 1744195038.0 | 1744195041.0 | (14, True)  | (10, True)   | (6.5, True)  | (6, False)      
-UserA   | 1744195041.0 | 1744195044.0 | (16, False) | (10, True)   | (5.0, True)  | (7, True)      
-UserB   | 1744195044.0 | 1744195047.0 | (16, False) | (10, True)   | (7.0, True)  | (9, False)      
+user_id | window_start | window_end   | count       | max_interact | med_interact | freq_interact
+UserA   | 1744195038.0 | 1744195041.0 | (14, True)  | (10, True)   | (6.5, True)  | (6, False)
+UserA   | 1744195041.0 | 1744195044.0 | (16, False) | (10, True)   | (5.0, True)  | (7, True)
+UserB   | 1744195044.0 | 1744195047.0 | (16, False) | (10, True)   | (7.0, True)  | (9, False)
 UserB   | 1744195047.0 | 1744195050.0 | (8, True)   | (8, True)    | (5.0, True)  | ((2, 7), True)
 ```
 
-The above checks are just a small subset of the large amount of built-in, plug-and-play data quality validations *Stream DaQ* comes with. A detailed 
+The above checks are just a small subset of the large amount of built-in, plug-and-play data quality validations *Stream DaQ* comes with. A detailed
 list of all the available checks will be included shortly.
 
 ## Execution
