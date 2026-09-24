@@ -158,4 +158,4 @@ are on their way to be included shortly. We thank you for your patience.
 Special thanks to [Maria Kavouridou](https://www.linkedin.com/in/maria-kavouridou/) for putting effort and love, in
 order to give birth to the Stream DaQ logo.
 
-](https://img.shields.io/badge)
+![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
