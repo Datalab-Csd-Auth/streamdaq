@@ -11,10 +11,10 @@ from pydantic import (
 
 from streamdaq.api.adapters import validate_coerce_params
 from streamdaq.api.registries import (
-    INPUT_REGISTRY,
     INSTANT_CHECK_REGISTRY,
     MEASURE_REGISTRY,
-    OUTPUT_REGISTRY,
+    SINK_REGISTRY,
+    SOURCE_REGISTRY,
     WINDOW_REGISTRY,
 )
 from streamdaq.translators.string_to_callable import resolve_must_be
@@ -31,15 +31,12 @@ class InputConfig(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        if v not in INPUT_REGISTRY:
+        if v not in SOURCE_REGISTRY:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Input type must be one of {list(INPUT_REGISTRY.keys())}",
+                detail=f"Input type must be one of {list(SOURCE_REGISTRY.keys())}",
             )
         return v
-
-    # TODO: Add a model_validator to validate the params against the input class's
-    # expected parameters for each input type.
 
 
 class OutputConfig(BaseModel):
@@ -51,10 +48,10 @@ class OutputConfig(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        if v not in OUTPUT_REGISTRY:
+        if v not in SINK_REGISTRY:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Output type must be one of {list(OUTPUT_REGISTRY.keys())}",
+                detail=f"Output type must be one of {list(SINK_REGISTRY.keys())}",
             )
         return v
 

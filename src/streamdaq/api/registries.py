@@ -1,30 +1,16 @@
 import pathway as pw
 
 from streamdaq import checks, measures
-from streamdaq.utils.api import (
-    build_csv_input,
-    build_kafka_input,
-    build_mqtt_input,
-    build_mqtt_output,
-    build_parquet_input,
-    build_python_connector_input,
-)
+from streamdaq.io.sinks import SINK_REGISTRY
+from streamdaq.io.sources import SOURCE_REGISTRY
 
-INPUT_REGISTRY = {
-    "csv": build_csv_input,  # static or streaming
-    "parquet": build_parquet_input,  # static or streaming
-    "python_connector": build_python_connector_input,  # streaming
-    "kafka": build_kafka_input,  # streaming
-    "mqtt": build_mqtt_input,  # streaming
-}
-
-OUTPUT_REGISTRY = {
-    "jsonlines": pw.io.jsonlines.write,
-    "csv": pw.io.csv.write,
-    "postgres": pw.io.postgres.write,
-    "mqtt": build_mqtt_output,
-    "kafka": pw.io.kafka.write,
-}
+__all__ = [
+    "SOURCE_REGISTRY",
+    "INSTANT_CHECK_REGISTRY",
+    "MEASURE_REGISTRY",
+    "SINK_REGISTRY",
+    "WINDOW_REGISTRY",
+]
 
 # --- Windows ---
 # TODO: This will change to StreamDaQ windows

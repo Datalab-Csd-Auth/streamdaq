@@ -8,7 +8,7 @@ class LambdaFactory:
     @classmethod
     def get_nth_list_element(cls, n: int, dtype: type | None = None) -> Callable | PicklableLambda:
         if not dtype:
-            return lambda elements: elements[n]
+            return Lambda(lambda elements: elements[n])
 
         dtype_to_lambda: dict[type, Callable | PicklableLambda] = {
             bool: Lambda(lambda elements: elements[n].as_bool()),

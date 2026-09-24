@@ -2,11 +2,9 @@
 
 ``build_task`` converts a declarative ``TaskConfig`` into a concrete ``Task`` by
 resolving each named component through the real registries. These tests use real
-registries and real config objects; the CSV input factory returns an
-un-invoked ``functools.partial``, so nothing touches the network.
+registries and real config objects; the CSV source is not invoked, so nothing
+touches the network.
 """
-
-import functools
 
 from streamdaq.api.engine import build_task
 from streamdaq.api.models import (
@@ -20,6 +18,7 @@ from streamdaq.api.models import (
     WindowConfig,
 )
 from streamdaq.checks.instant.any_column.in_range import InRange
+from streamdaq.io.sources.csv_source import CsvSource
 from streamdaq.measures.numeric.mean import Mean
 
 
@@ -57,7 +56,8 @@ class TestBuildTaskBasics:
 
     def test_input_is_resolved_to_a_callable(self):
         task = build_task(_full_config())
-        assert isinstance(task.input, functools.partial)
+        assert isinstance(task.input, CsvSource)
+        assert callable(task.input)
 
     def test_output_callable_and_kwargs_are_wired(self):
         config = _full_config()

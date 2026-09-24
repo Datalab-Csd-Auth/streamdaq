@@ -1,9 +1,9 @@
 from streamdaq.api.models import TaskConfig
 from streamdaq.api.registries import (
-    INPUT_REGISTRY,
     INSTANT_CHECK_REGISTRY,
     MEASURE_REGISTRY,
-    OUTPUT_REGISTRY,
+    SINK_REGISTRY,
+    SOURCE_REGISTRY,
     WINDOW_REGISTRY,
 )
 from streamdaq.checks import WindowDataQualityCheck
@@ -15,10 +15,10 @@ def build_task(config: TaskConfig) -> Task:
     Translates an API TaskConfig model into a StreamDAQ Task object.
     """
     # Build Input
-    input_callable = INPUT_REGISTRY[config.input.type](config.input.params)
+    input_callable = SOURCE_REGISTRY[config.input.type](config.input.params)
 
     # Build Output
-    output_callable = OUTPUT_REGISTRY[config.output.type]
+    output_callable = SINK_REGISTRY[config.output.type]
 
     task = Task(
         name=config.name,

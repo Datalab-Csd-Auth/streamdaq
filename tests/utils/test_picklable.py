@@ -1,18 +1,8 @@
-"""Tests for the ``Lambda`` picklable wrapper.
+"""Tests for the ``Lambda`` picklable wrapper."""
 
-The wrapper exists so that lambdas and other non-standard callables survive
-``pickle`` when a task is dispatched to a separate ``multiprocessing`` process
-(spawn start method). The critical behavior is therefore the ``__getstate__`` /
-``__setstate__`` round-trip via ``dill``.
-"""
+import dill
 
-import pickle
-
-from streamdaq.utils.picklable import Lambda
-
-
-def _module_level_add(a, b):
-    return a + b
+from streamdaq.utils.picklable import IS_RUNNING_ON_MAC, Lambda, PicklableLambda
 
 
 class TestLambdaCall:
@@ -25,18 +15,25 @@ class TestLambdaCall:
         assert wrapped(1, 2, c=3) == 6
 
 
-class TestLambdaMetadata:
-    def test_copies_named_function_metadata(self):
-        wrapped = Lambda(_module_level_add)
-        assert wrapped.__name__ == "_module_level_add"
-        assert wrapped.__module__ == __name__
+class TestLambdaSerialization:
+    """The reason ``Lambda`` exists: a local lambda surviving ``dill`` across processes."""
+
+    def test_local_lambda_survives_dill_round_trip(self):
+        wrapped = Lambda(lambda x: x * 2)
+        restored = dill.loads(dill.dumps(wrapped))
+        assert restored(21) == 42
 
 
-class TestLambdaPickling:
-    """The whole reason this class exists: surviving pickle across processes."""
+class TestPicklableLambdaWrapper:
+    """macOS-specific behavior of the ``PicklableLambda`` wrapper used under the spawn method."""
 
-    def test_metadata_restored_after_unpickle(self):
-        wrapped = Lambda(_module_level_add)
-        restored = pickle.loads(pickle.dumps(wrapped))
-        assert restored.__name__ == "_module_level_add"
-        assert restored(2, 5) == 7
+    def test_lambda_returns_a_picklable_wrapper_on_mac(self):
+        wrapped = Lambda(lambda x: x)
+        assert isinstance(wrapped, PicklableLambda) is IS_RUNNING_ON_MAC
+
+    def test_wrapper_copies_and_restores_function_metadata(self):
+        original = PicklableLambda(lambda x: x)
+        assert original.__name__ == "<lambda>"
+        restored = dill.loads(dill.dumps(original))
+        assert restored.__name__ == "<lambda>"
+        assert restored(7) == 7
