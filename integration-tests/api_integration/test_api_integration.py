@@ -21,7 +21,7 @@ from utils import (
 )
 
 from api_integration.test_utils.payload import build_request_payload
-from api_integration.test_utils.registry import EXCLUDED_MEASURES, MEASURE_SPECS
+from api_integration.test_utils.registry import MEASURE_SPECS
 from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.api.utils import API_PREFIX
 
@@ -43,18 +43,14 @@ class TestApiEndToEnd:
         registered = set(MEASURE_REGISTRY)
         specified = set(MEASURE_SPECS)
 
-        overlap = specified & EXCLUDED_MEASURES
-        assert not overlap, f"Conflict: Measures both included and excluded: {sorted(overlap)}."
-
-        accounted_for = specified | EXCLUDED_MEASURES
-        unaccounted = registered - accounted_for
-        assert not unaccounted, (
-            f"Measures registered but not covered or excluded: {sorted(unaccounted)}. "
-            "Add each to MEASURE_SPECS (with its params and must_be) or to EXCLUDED_MEASURES."
+        unspecified = registered - specified
+        assert not unspecified, (
+            f"Measures registered but not covered: {sorted(unspecified)}. "
+            "Add each to MEASURE_SPECS with its params and must_be."
         )
 
-        stale = accounted_for - registered
-        assert not stale, f"Specs/exclusions reference unknown measures: {sorted(stale)}."
+        stale = specified - registered
+        assert not stale, f"Specs reference unknown measures: {sorted(stale)}."
 
     def test_all_checks_and_measures(self, api_server: RunningApi):
         work_dir = api_server.work_dir

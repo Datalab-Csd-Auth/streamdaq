@@ -2,23 +2,23 @@
 Single source of truth for how each measure and check is tested end to end through the API.
 
 To cover a new measure or instant check, add exactly one entry to ``MEASURE_SPECS`` or
-``INSTANT_CHECK_SPECS`` (or, if it cannot be covered yet, to ``EXCLUDED_MEASURES``). Each
-entry carries a ``must_be`` threshold chosen so that, over the fixed stream, at least one
-window (or row) satisfies it and at least one violates it — proving the check's computation
-actually runs through the API in both directions.
+``INSTANT_CHECK_SPECS``. Each entry carries a ``must_be`` threshold chosen so that, over the
+fixed stream, at least one window (or row) satisfies it and at least one violates it — proving
+the check's computation actually runs through the API in both directions.
 """
 
 from dataclasses import dataclass
 from typing import Any
 
 from api_integration.test_utils.stream import CATEGORICAL, FLOAT, INT, TEXT, TIME
-from streamdaq.api.registries import MEASURE_REGISTRY
 
 
 @dataclass(frozen=True)
 class MeasureSpec:
     params: dict[str, Any]
     must_be: str
+    extra_must_be: tuple[str, ...] = ()
+    suffixes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,13 +87,17 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
     "UniqueFraction": MeasureSpec({"column": INT}, ">= 1"),
     "UniqueOverDistinct": MeasureSpec({"column": INT}, ">= 1"),
     "Variance": MeasureSpec({"column": INT}, ">= 1000"),
+    "WindowDuration": MeasureSpec(
+        {"column": INT},
+        "== 1000",
+        extra_must_be=("== 1001",),
+        suffixes=(
+            "true",
+            "false",
+        ),
+    ),
 }
 
-# Measures deliberately not covered as window checks temporarily.
-# TODO Enable them once https://github.com/Datalab-Csd-Auth/streamdaq/issues/16 is implemented
-EXCLUDED_MEASURES: frozenset[str] = frozenset({"WindowDuration"})
-
-# TODO Add 'Row' is excluded when implemented at the source code level.
 INSTANT_CHECK_SPECS: dict[str, InstantCheckSpec] = {
     "InRange": InstantCheckSpec("InRange", {"column": INT, "low": 0, "high": 25}),
     "InRowComparison": InstantCheckSpec(
@@ -104,22 +108,3 @@ INSTANT_CHECK_SPECS: dict[str, InstantCheckSpec] = {
     "Regex": InstantCheckSpec("Regex", {"column": TEXT, "regex": r"^\d+$"}),
     "Value": InstantCheckSpec("Value", {"column": INT, "must_be": "<= 15"}),
 }
-
-
-def assert_completeness_of_integration_tests() -> None:
-    """Fail if a registered measure is neither specified nor explicitly excluded."""
-    registered = set(MEASURE_REGISTRY)
-    specified = set(MEASURE_SPECS)
-
-    overlap = specified & EXCLUDED_MEASURES
-    assert not overlap, f"Conflict: Found measures both specified and excluded: {sorted(overlap)}."
-
-    accounted_for = specified | EXCLUDED_MEASURES
-    unaccounted = registered - accounted_for
-    assert not unaccounted, (
-        f"Measures registered but not covered or excluded: {sorted(unaccounted)}. "
-        "Add each to MEASURE_SPECS (with its params and must_be) or to EXCLUDED_MEASURES."
-    )
-
-    stale = accounted_for - registered
-    assert not stale, f"Specs/exclusions reference unknown measures: {sorted(stale)}."

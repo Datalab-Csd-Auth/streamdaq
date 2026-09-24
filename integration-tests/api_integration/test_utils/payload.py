@@ -40,14 +40,24 @@ def input_config_payload() -> dict[str, Any]:
 
 
 def window_checks_payload() -> list[dict[str, Any]]:
-    return [
-        {
-            "name": f"wc_{measure_name}",
-            "measure": {"type": measure_name, "params": spec.params},
-            "must_be": spec.must_be,
-        }
-        for measure_name, spec in sorted(MEASURE_SPECS.items())
-    ]
+    checks: list[dict[str, Any]] = []
+    for measure_name, spec in sorted(MEASURE_SPECS.items()):
+        thresholds = (spec.must_be, *spec.extra_must_be)
+        measure_contains_suffixes = len(spec.suffixes) > 0
+        for index, must_be in enumerate(thresholds):
+            name = (
+                f"wc_{measure_name}_{spec.suffixes[index]}"
+                if measure_contains_suffixes
+                else f"wc_{measure_name}"
+            )
+            checks.append(
+                {
+                    "name": name,
+                    "measure": {"type": measure_name, "params": spec.params},
+                    "must_be": must_be,
+                }
+            )
+    return checks
 
 
 def instant_checks_payload() -> list[dict[str, Any]]:
