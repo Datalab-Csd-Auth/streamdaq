@@ -1,12 +1,9 @@
 """
 End-to-end integration tests for custom user code loaded through ``streamdaq serve --files``.
 
-Both a custom ``@measure`` and a custom ``@assessment`` are registered from the shared
-``user_files`` and driven over the API against the same deterministic finite stream. The
-measure task asserts a built-in grammar ``must_be`` over the custom measure's value; the
-assessment task's ``must_be`` is a registered assessment name, proving registry-first
-resolution survives the ``--files`` spawn reload. Each task's window output is compared
-against its expected output.
+A custom ``@measure``, ``@assessment``, ``@source`` and ``@sink`` are registered from the shared
+``user_files`` and driven over the API against the same deterministic finite stream.
+Each task's output is compared against its expected output.
 """
 
 import os
@@ -23,6 +20,9 @@ from utils import (
 
 from custom_integration.assessments.payload import build_request_payload as build_assessment_payload
 from custom_integration.measures.payload import build_request_payload as build_measure_payload
+from custom_integration.sinks.payload import build_request_payload as build_sink_payload
+from custom_integration.sources.payload_compact import build_compact_request_payload
+from custom_integration.sources.payload_native import build_native_request_payload
 from streamdaq.api.utils import API_PREFIX
 
 SUITE_DIR = Path(__file__).resolve().parent
@@ -51,8 +51,17 @@ class TestCustomUserCodeEndToEnd:
         [
             (build_measure_payload, SUITE_DIR / "measures" / "expected_output"),
             (build_assessment_payload, SUITE_DIR / "assessments" / "expected_output"),
+            (build_native_request_payload, SUITE_DIR / "sources" / "expected_output_native"),
+            (build_compact_request_payload, SUITE_DIR / "sources" / "expected_output_compact"),
+            (build_sink_payload, SUITE_DIR / "sinks" / "expected_output"),
         ],
-        ids=["custom_measure", "custom_assessment"],
+        ids=[
+            "custom_measure",
+            "custom_assessment",
+            "custom_source",
+            "custom_compact_source",
+            "custom_sink",
+        ],
     )
     def test_tumbling_window(self, api_server: RunningApi, build_payload, expected_output_dir):
         work_dir = api_server.work_dir
