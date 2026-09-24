@@ -10,6 +10,7 @@ import pathway as pw
 from streamdaq.checks.base import DataQualityCheck
 from streamdaq.checks.instant.base import InstantDataQualityCheck
 from streamdaq.checks.window.base import WindowDataQualityCheck
+from streamdaq.io.sources import BaseSource
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.orchestration.utils import gracefully_kill, load_additional_files
 from streamdaq.tasks.task_output import TaskOutput
@@ -22,6 +23,8 @@ def _run_task_in_worker(files_path: str | None, task_payload: bytes) -> None:
         load_additional_files(files_path)
 
     task = dill.loads(task_payload)
+    if isinstance(task.input, BaseSource):
+        task.input.files_path = files_path
     task._pw_task_worker_function()
 
 

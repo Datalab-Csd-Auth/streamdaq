@@ -62,3 +62,53 @@ class TestDiscoverNativeEVBSchema:
             discover_native_evb_schema(
                 get_table_function=get_table_function_never_valid, timeout_seconds=2
             )
+
+
+_USER_STREAM_MODULE = """
+import pathway as pw
+
+from streamdaq.schema.evb.definitions import EVBSchema
+
+
+class UserEVBStream(pw.io.python.ConnectorSubject):
+    def run(self):
+        for _ in range(10):
+            self.next(
+                measurements=[
+                    {
+                        "name": "Streamdaq_Demo",
+                        "tags": {"plant": "X"},
+                        "type": "Points",
+                        "fields": ["time", "reading"],
+                        "values": [[1645334535000, 1.0]],
+                    }
+                ]
+            )
+
+
+def get_user_table():
+    return pw.io.python.read(UserEVBStream(), schema=EVBSchema)
+"""
+
+
+class TestSchemaSniffReloadsUserFiles:
+    """The sniffer child must reload ``--files`` before deserializing a user-defined callable."""
+
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    def test_discovers_schema_from_a_user_files_callable(self, tmp_path):
+        module_path = tmp_path / "user_stream.py"
+        module_path.write_text(_USER_STREAM_MODULE)
+
+        from streamdaq.orchestration.utils import load_additional_files
+
+        load_additional_files(str(tmp_path))
+        import streamdaq_user_files_user_stream as user_module
+
+        result = discover_native_evb_schema(
+            get_table_function=user_module.get_user_table,
+            timeout_seconds=10,
+            files_path=str(tmp_path),
+        )
+
+        assert set(result) == {"fields", "tags"}
+        assert result["fields"] == (("reading", float),)

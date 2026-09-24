@@ -27,3 +27,17 @@ def isolate_assessment_registry():
     yield registry.ASSESSMENT_REGISTRY
     registry.ASSESSMENT_REGISTRY.clear()
     registry.ASSESSMENT_REGISTRY.update(snapshot)
+
+
+@pytest.fixture(autouse=True)
+def isolate_source_registry():
+    """
+    Snapshot ``SOURCE_REGISTRY`` and restore it in place after every test, so that tests that
+    register custom sources never leak entries into one another.
+    """
+    import streamdaq.api.registries as registries
+
+    snapshot = dict(registries.SOURCE_REGISTRY)
+    yield registries.SOURCE_REGISTRY
+    registries.SOURCE_REGISTRY.clear()
+    registries.SOURCE_REGISTRY.update(snapshot)

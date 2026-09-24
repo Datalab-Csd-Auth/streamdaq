@@ -241,16 +241,16 @@ async def edit_task(task_id: str, task_config: TaskConfig) -> dict[str, str]:
 async def get_config_options() -> dict[str, list[str]]:
     """Return available registered option names for inputs, outputs, windows, and checks."""
     from streamdaq.api.registries import (
-        INPUT_REGISTRY,
         INSTANT_CHECK_REGISTRY,
         MEASURE_REGISTRY,
-        OUTPUT_REGISTRY,
+        SINK_REGISTRY,
+        SOURCE_REGISTRY,
         WINDOW_REGISTRY,
     )
 
     return {
-        "inputs": list(INPUT_REGISTRY.keys()),
-        "outputs": list(OUTPUT_REGISTRY.keys()),
+        "inputs": list(SOURCE_REGISTRY.keys()),
+        "outputs": list(SINK_REGISTRY.keys()),
         "windows": list(WINDOW_REGISTRY.keys()),
         "instant_checks": list(INSTANT_CHECK_REGISTRY.keys()),
         "measures": list(MEASURE_REGISTRY.keys()),
