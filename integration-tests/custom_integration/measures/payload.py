@@ -1,8 +1,8 @@
 """Builds the ``bulk_create`` payload for the custom-measure integration suite."""
 
-from custom_integration.stream import MEASUREMENT, STATUS, TIME
+from custom_integration.stream_native import MEASUREMENT, STATUS, TIME
 
-_MODULE = "custom_integration.stream"
+_MODULE = "custom_integration.stream_native"
 _CLASS = "FiniteCustomStream"
 MEASURE_TYPE = "MaxDropBetweenOkReadings"
 
