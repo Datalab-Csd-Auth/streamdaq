@@ -2,7 +2,8 @@ from typing import Any
 
 import pathway as pw
 
-from streamdaq.custom import assessment, ensure_unique_mqtt_client_id, measure, sink, source
+from streamdaq.custom import assessment, measure, sink, source
+from streamdaq.io.utils import ensure_unique_mqtt_client_id
 from streamdaq.schema.evb.definitions import EVBSchema
 
 # --- Custom data quality measures ---
