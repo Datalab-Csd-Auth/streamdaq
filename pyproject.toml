@@ -46,7 +46,7 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/Datalab-Csd-Auth/streamdaq#readme"
+Documentation = "https://datalab-csd-auth.github.io/streamdaq/"
 Issues = "https://github.com/Datalab-Csd-Auth/streamdaq/issues"
 Source = "https://github.com/Datalab-Csd-Auth/streamdaq"
 Repository = "https://github.com/Datalab-Csd-Auth/streamdaq"
