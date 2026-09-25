@@ -17,11 +17,12 @@ git checkout main
 git pull origin main
 
 echo "Bumping version ($BUMP_TYPE)..."
-NEW_VERSION=$(uvx hatch version "$BUMP_TYPE")
+uvx hatch version "$BUMP_TYPE"
+NEW_VERSION=$(uvx hatch version)
 TAG_NAME="v${NEW_VERSION}"
 BRANCH_NAME="release/${TAG_NAME}"
 
-echo "Creating and pushing to a separate branch '($BRANCH_NAME)'..."
+echo "Creating and pushing to branch '${BRANCH_NAME}'..."
 git checkout -b "$BRANCH_NAME"
 git add src/streamdaq/__about__.py
 git commit -m "chore(release): Bump version to ${NEW_VERSION}"
