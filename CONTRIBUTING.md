@@ -1,10 +1,11 @@
-# Development Guide
+# Contributing to `streamdaq`
 
-Welcome! Thank you for wanting to contribute to `streamdaq`. This guide provides the commands to set up your environment and run our quality checks locally.
+Welcome! Thank you for wanting to contribute to `streamdaq`. This guide provides the commands to set up your environment, run our quality checks locally, and mange
+project versions.
 
 ## Prerequisites
 * Python 3.11, 3.12, or 3.13
-* [uv](https://github.com/astral-sh/uv) installed (see https://docs.astral.sh/uv/getting-started/installation/ for one-liner installation based on OS)
+* [uv](https://github.com/astral-sh/uv) installed (see the [one-liner installation](https://docs.astral.sh/uv/getting-started/installation/) based on OS)
 * [hatch](https://hatch.pypa.io/) installed globally (`uv tool install hatch`)
 
 ## Initial Setup
@@ -57,7 +58,7 @@ Pre-commit handles this automatically on `git commit`, but you can run the check
   ```
 
 ### Testing (Pytest & Nox)
-We use `pytest` for unit tests and `nox` to test across multiple Python versions. Our CI requires 100% passing tests and a minimum of 90% line coverage.
+We use `pytest` for unit tests and `nox` to test across multiple Python versions. Our CI requires 100% passing tests and a minimum of 85% line coverage.
 
 * **Run tests quickly in your current environment:**
   ```bash
@@ -66,6 +67,10 @@ We use `pytest` for unit tests and `nox` to test across multiple Python versions
 * **Run the full test matrix (Python 3.11, 3.12, 3.13):**
   ```bash
   nox
+  ```
+* **Run the full integration test matrix (Ubuntu, MacOS):**
+  ```bash
+  nox -s integration-tests
   ```
 
 ### Documentation (MkDocs)
@@ -76,20 +81,19 @@ If you are adding a feature, please update the documentation or Jupyter Notebook
   mkdocs serve --livereload
   ```
 
-### Versioning & Building (Hatch)
+### Versioning & Publishing to PyPi
 We use Hatch to manage the project version and build the distribution files.
+To simplify the build and release steps of the project, we use the `./release.sh`
+script. Steps to bump the `streamdaq` version:
+1. Sync with one of the project core maintainers about the [
+type of the version update](https://packaging.python.org/en/latest/discussions/versioning/) (patch/minor/major)
+2. (only for the first time) Make the `./release.sh` script executable:
+    ```bash
+    chmod +x ./release.sh
+    ```
 
-* **Check the current version:**
-  ```bash
-  hatch version
-  ```
-* **Bump the version (e.g., patch, minor, or major):**
-  ```bash
-  hatch version patch  # Changes 0.1.0 to 0.1.1
-  hatch version minor  # Changes 0.1.1 to 0.2.0
-  hatch version major  # Changes 0.2.0 to 1.0.0
-  ```
-* **Build the package locally (creates `dist/` directory with wheel and sdist):**
-  ```bash
-  hatch build
-  ```
+3. Execute the script with the type of update decided in #1 and follow the
+printed instructions:
+    ```bash
+    ./release.sh patch  # or minor or major
+    ```
