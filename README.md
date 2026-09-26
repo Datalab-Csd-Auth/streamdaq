@@ -4,9 +4,9 @@
 
 <p align="center">
   <a href="https://pypi.org/project/streamdaq/"><img src="https://img.shields.io/pypi/v/streamdaq?label=release&color=blue&" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/streamdaq/"><img src="https://img.shields.io/pypi/pyversions/streamdaq.svg" alt="Python versions"></a>
+  <a href="https://pypi.org/project/streamdaq/"><img src="https://img.shields.io/pypi/pyversions/streamdaq?color=purple" alt="Python versions"></a>
   <a href="https://pepy.tech/project/streamdaq"><img src="https://pepy.tech/badge/streamdaq" alt="Downloads"></a>
-  <a href="https://bilpapster.github.io/stream-DaQ/"><img src="https://img.shields.io/website?label=docs&url=https%3A%2F%2Fbilpapster.github.io/stream-DaQ%2F" alt="Documentation"></a>
+  <a href="https://datalab-csd-auth.github.io/streamdaq/"><img src="https://img.shields.io/website?label=docs&url=https%3A%2F%2Fdatalab-csd-auth.github.io/streamdaq%2F" alt="Documentation"></a>
   <a href="https://opensource.org/license/apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-yellow.svg" alt="License: Apache 2.0"></a>
 </p>
 
@@ -157,5 +157,3 @@ are on their way to be included shortly. We thank you for your patience.
 
 Special thanks to [Maria Kavouridou](https://www.linkedin.com/in/maria-kavouridou/) for putting effort and love, in
 order to give birth to the Stream DaQ logo.
-
-![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
