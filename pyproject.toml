@@ -75,6 +75,10 @@ docs = [
     "mkdocs-jupyter",
     "ipykernel",
     "mkdocs-macros-plugin",
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mkdocs-section-index",
+    "mkdocstrings[python]",
 ]
 
 [tool.hatch.version]

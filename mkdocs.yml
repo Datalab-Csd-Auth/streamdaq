@@ -32,6 +32,12 @@ extra:
   homepage: https://datalab.csd.auth.gr/
 plugins:
   - search
+  - gen-files:
+      scripts:
+      - scripts/generate_api_reference_docs.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
   - git-committers:
       repository: Datalab-Csd-Auth/streamdaq
       branch: main
@@ -44,6 +50,20 @@ plugins:
       include_source: True
   - git-revision-date-localized:
       enable_creation_date: false
+  - mkdocstrings:  # https://mkdocstrings.github.io/python/reference/api/
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            modernize_annotations: true
+            show_root_heading: true
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_if_no_docstring: true
+            members_order: alphabetical
+            filters:
+              - "!^_"
 markdown_extensions:
   - admonition
   - attr_list
@@ -53,8 +73,8 @@ markdown_extensions:
   - pymdownx.caret
   - pymdownx.critic
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight
   - pymdownx.inlinehilite
   - pymdownx.keys
@@ -68,5 +88,6 @@ nav:
     - Stream-first Data Quality: concepts/data-quality.md
     - Real-time Monitoring: concepts/real-time-monitoring.md
     - Compact vs Native Data Formats: concepts/compact-vs-native-data.md
-  - Code Examples:
+  - Examples:
     - notebooks/starting_example.ipynb
+  - API Reference: reference/
