@@ -1,13 +1,11 @@
 from streamdaq.api.models import TaskConfig
-from streamdaq.api.registries import (
-    INSTANT_CHECK_REGISTRY,
-    MEASURE_REGISTRY,
-    SINK_REGISTRY,
-    SOURCE_REGISTRY,
-    WINDOW_REGISTRY,
-)
 from streamdaq.checks import WindowDataQualityCheck
+from streamdaq.checks.registry import INSTANT_CHECK_REGISTRY
+from streamdaq.io.sinks.registry import SINK_REGISTRY
+from streamdaq.io.sources.registry import SOURCE_REGISTRY
+from streamdaq.measures.registry import MEASURE_REGISTRY
 from streamdaq.tasks.base import Task
+from streamdaq.temporal.windows.registry import WINDOW_REGISTRY
 
 
 def build_task(config: TaskConfig) -> Task:

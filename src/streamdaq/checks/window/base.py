@@ -15,6 +15,7 @@ class WindowDataQualityCheck(DataQualityCheck):
     measure: DataQualityMeasure
     must_be: Callable[[Any], bool] | str | None = None
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
+    _should_be_registered: ClassVar[bool] = False
 
     def __post_init__(self):
         if self.must_be is None or isinstance(self.must_be, Callable):

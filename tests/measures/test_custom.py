@@ -2,9 +2,9 @@ import pandas as pd
 import pathway as pw
 import pytest
 
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.custom import measure
 from streamdaq.measures.measure_dag import build_measure_dag
+from streamdaq.measures.registry import MEASURE_REGISTRY
 
 
 @measure(

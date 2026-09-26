@@ -4,7 +4,6 @@ from typing import Any, ClassVar
 
 import pathway as pw
 
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.computations.generic import sort_lists_by
 from streamdaq.measures.any_column.tuple import Tuple
 from streamdaq.measures.base import DataQualityMeasure
@@ -20,13 +19,8 @@ class CustomDataQualityMeasure(DataQualityMeasure):
     desc: ClassVar[bool] = False
     _dependencies: ClassVar[list[type[DataQualityMeasure]]] = []
     _applicability: ClassVar[DataTypeApplicability] = None
+    _should_be_registered: ClassVar[bool] = False
     column: str = ""  # intentional to ignore this field coming from the superclass
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if getattr(cls, "__abstractmethods__", None) is not None:
-            return
-        MEASURE_REGISTRY[cls.__name__] = cls
 
     def __post_init__(self):
         if len(self.columns) == 0:

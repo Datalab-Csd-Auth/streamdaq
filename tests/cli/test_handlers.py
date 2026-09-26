@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.cli.handlers import serve, status
+from streamdaq.measures.registry import MEASURE_REGISTRY
 
 
 class TestServeHandler:
