@@ -3,8 +3,8 @@
 import pathway as pw
 import pytest
 
-from streamdaq.api.registries import SOURCE_REGISTRY
 from streamdaq.custom import source
+from streamdaq.io.sources.registry import SOURCE_REGISTRY
 
 
 class TestSourceRegistration:

@@ -22,8 +22,8 @@ from utils import (
 
 from api_integration.test_utils.payload import build_request_payload
 from api_integration.test_utils.registry import MEASURE_SPECS
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.api.utils import API_PREFIX
+from streamdaq.measures.registry import MEASURE_REGISTRY
 
 EXPECTED_OUTPUT_DIR = Path(__file__).resolve().parent / "expected_output"
 USER_FILES_DIR = Path(__file__).resolve().parent / "user_files"

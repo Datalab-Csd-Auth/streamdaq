@@ -11,9 +11,9 @@ import pathway as pw
 from api_integration.test_utils.registry import MEASURE_SPECS
 from api_integration.test_utils.stream import COLUMNS, ROWS
 
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.base import DataQualityMeasure
+from streamdaq.measures.registry import MEASURE_REGISTRY
 
 
 def per_window_values(measure: DataQualityMeasure, window) -> list:

@@ -1,6 +1,6 @@
 import pytest
 
-from streamdaq.api.registries import MEASURE_REGISTRY
+from streamdaq.measures.registry import MEASURE_REGISTRY
 from streamdaq.orchestration.utils import load_additional_files
 
 _MEASURE_FILE = """

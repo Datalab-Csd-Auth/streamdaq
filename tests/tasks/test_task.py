@@ -6,8 +6,8 @@ import dill
 import pandas as pd
 import pathway as pw
 
-from streamdaq.api.registries import MEASURE_REGISTRY
 from streamdaq.checks.window.base import WindowDataQualityCheck
+from streamdaq.measures.registry import MEASURE_REGISTRY
 from streamdaq.orchestration.utils import load_additional_files
 from streamdaq.tasks.base import Task, _run_task_in_worker
 
