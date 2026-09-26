@@ -19,11 +19,19 @@ maintainers = [
     {name = "Georgios Atmatzidis", email = "gatmatza@csd.auth.gr"}
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Healthcare Industry",
+  "Intended Audience :: Manufacturing",
   "Intended Audience :: Science/Research",
+  "Intended Audience :: Telecommunications Industry",
   "License :: OSI Approved :: Apache Software License",
-  "Operating System :: OS Independent",
+  "Natural Language :: English",
+  "Operating System :: MacOS",
+  "Operating System :: Unix",
+  "Operating System :: POSIX",
+  "Environment :: Console",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -32,6 +40,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Typing :: Typed",
 ]
 dependencies = [
   "pathway~=0.32.1",
@@ -60,7 +70,7 @@ dev = [
     "ruff~=0.16.6",
     "nox~=2026.8.17",
     "mypy~=2.3.1",
-    "identify>=2.6.18",  # used by pre-commit-ruff to lint pyproject.toml
+    "identify>=2.6.18",
 ]
 test = [
     "pytest~=9.1.1",
