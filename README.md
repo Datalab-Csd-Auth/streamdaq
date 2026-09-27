@@ -8,6 +8,7 @@
   <a href="https://pepy.tech/project/streamdaq"><img src="https://pepy.tech/badge/streamdaq" alt="Downloads"></a>
   <a href="https://datalab-csd-auth.github.io/streamdaq/"><img src="https://img.shields.io/website?label=docs&url=https%3A%2F%2Fdatalab-csd-auth.github.io/streamdaq%2F" alt="Documentation"></a>
   <a href="https://opensource.org/license/apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-yellow.svg" alt="License: Apache 2.0"></a>
+  <a href="https://arxiv.org/abs/2506.06147"><img src="https://img.shields.io/badge/arXiv-2506.06147-b31b1b.svg" alt="License: Apache 2.0"></a>
 </p>
 
 ## Installation
