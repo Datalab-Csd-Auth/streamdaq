@@ -73,6 +73,7 @@ def test_create_task_valid(mock_get_session, mock_build_task):
         "name": "Valid Task 1",
         "windowby_column": "age",
         "window_checks_config": {"window": {"type": "sliding", "params": {}}, "checks": []},
+        "include_window_bounds": True,
         "input": {"type": "kafka", "params": {}},
         "output": {"type": "jsonlines", "params": {}},
         "instant_checks": [

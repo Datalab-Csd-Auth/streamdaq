@@ -163,6 +163,10 @@ class TaskStatus(StrEnum):
 class TaskConfig(BaseModel):
     name: str = Field(..., description="Name of the task.")
     windowby_column: str | None = Field(None, description="Column to window by.")
+    include_window_bounds: bool = Field(
+        True,
+        description="Whether to include window start and end columns in window checks output",
+    )
     input: InputConfig | None = Field(None, description="Input source configuration.")
     output: OutputConfig | None = Field(None, description="Output sink configuration.")
     instant_checks: list[InstantCheckConfig] = Field(default_factory=list)
