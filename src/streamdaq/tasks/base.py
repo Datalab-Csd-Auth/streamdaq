@@ -37,6 +37,7 @@ class Task:
     window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
     window: Window | None = None
     windowby_column: str | None = None
+    include_window_bounds: bool = True
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     files_path: str | None = None
@@ -147,6 +148,15 @@ class Task:
         reduce_kwargs: dict[str, pw.ColumnExpression] = dict()
         measurement_kwargs: dict[str, pw.ColumnExpression] = dict()
         assessment_kwargs: dict[str, pw.ColumnExpression] = dict()
+
+        reduce_kwargs = (
+            {}
+            if not self.include_window_bounds
+            else {
+                "window_start": pw.this._pw_window_start,
+                "window_end": pw.this._pw_window_end,
+            }
+        )
 
         for window_check in self.window_checks:
             # collect reduce kwargs

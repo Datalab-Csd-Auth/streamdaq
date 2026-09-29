@@ -1,2 +1,2 @@
-{"wc_drop_spike":false,"diff":1}
-{"wc_drop_spike":true,"diff":1}
+{"window_start":0,"window_end":1000,"wc_drop_spike":true,"diff":1}
+{"window_start":1000,"window_end":2000,"wc_drop_spike":false,"diff":1}

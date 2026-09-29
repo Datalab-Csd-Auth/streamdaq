@@ -1,2 +1,2 @@
-{"wc_max_drop":false,"diff":1}
-{"wc_max_drop":true,"diff":1}
+{"window_start":1700000000000,"window_end":1700000001000,"wc_max_drop":true,"diff":1}
+{"window_start":1700000001000,"window_end":1700000002000,"wc_max_drop":false,"diff":1}
