@@ -21,43 +21,66 @@ Before we dive into the details, here is a complete example. Easy, isn't it?  (1
 1.  :man_raising_hand: This is an example annotation in **plain text**.
 
 
-```py { .yaml .annotate }
+```py { .annotate }
 # pip install streamdaq
+import pathway as pw
 
-from streamdaq import StreamDaQ, DaQMeasures as dqm, Windows
+from streamdaq.checks import InRange, WindowDataQualityCheck
+from streamdaq.measures import Count, DistinctCount, MostFrequent
+from streamdaq.sessions import Session
+from streamdaq.tasks import Task
 
-# Step 1: Configure your monitoring setup
-daq = StreamDaQ().configure(  # (1)!
-    window=Windows.tumbling(3),
-    instance="user_id",
-    time_column="timestamp",
-    wait_for_late=1,
-    time_format="%Y-%m-%d %H:%M:%S",
+
+def is_seven_frequent(most_frequent: tuple) -> bool:
+    return 7 in most_frequent
+
+
+# Step 2: Create a monitoring task that reads the stream and prints the results
+task = Task(
+    name="interactions",
+    input=read_stream,  # (2)!
+    output=output_sink, # (1)!
+    windowby_column="timestamp",
+    include_window_bounds=True,  # (3)!
 )
 
-# Step 2: Define what Data Quality means for you
-daq.check(dqm.count("interaction_events"), assess="(5, 15]", name="count").check(
-    dqm.max("interaction_events"), assess=">5.09", name="max_interact"
+# Step 3: Define what Data Quality means for you
+# Per-row checks, evaluated on every incoming element
+task.add_instant_checks(
+    InRange(name="valid_events", column="interaction_events", low=0, high=10),
 )
-# Step 3: Start monitoring and let Stream DaQ do the work
-daq.watch_out()
+# Per-window checks, evaluated on every tumbling window of 10 time units
+task.add_window_checks(
+    WindowDataQualityCheck("interaction_count", Count("interaction_events"), "(5, 15]"),
+    WindowDataQualityCheck("my_freq", MostFrequent("interaction_events"), is_seven_frequent),
+    WindowDataQualityCheck("interaction_distinct", DistinctCount("interaction_events"), "<= 5"),
+    window=pw.temporal.tumbling(duration=10),
+)
+
+# Step 4: Kick-off monitoring and let Stream DaQ do the work while you focus on the important
+Session(tasks=[task]).start()
 ```
 
-1.  This is an example annotation in `#!python code` `#!python range()`
+1.  `output` accepts any function that takes a table. Here, every result row is printed as it arrives. Built-in sinks
+    write to CSV, JSON Lines, Kafka, MQTT or Postgres instead.
+2.  Any function that returns a Pathway table can be the input, for example one reading from Kafka, MQTT or a CSV file.
+3.  Adds `window_start` and `window_end` as the first columns of every per-window result.
+4.  Any output sink that emits a pw.Table
 
 ??? code-output "Output"
     ```
-    Starting monitoring for task: default_task
-    Task 'default_task': No source provided. Data set to artificial and format to native.
-    Task 'default_task' started successfully
-    All 1 tasks started successfully
-                | user_id | window_start | window_end   | count       | max_interact
-    ^JS0CHBP... | UserA   | 1775721771.0 | 1775721774.0 | (7, True)   | (10, True)
-    ^JS00S9K... | UserA   | 1775721774.0 | 1775721777.0 | (20, False) | (10, True)
-    ^JS0FH5B... | UserA   | 1775721777.0 | 1775721780.0 | (16, False) | (10, True)
-    ^JS0C5TD... | UserA   | 1775721780.0 | 1775721783.0 | (16, False) | (10, True)
-    ^Z94K0FQ... | UserB   | 1775721771.0 | 1775721774.0 | (7, True)   | (10, True)
-    ^Z94NTD2... | UserB   | 1775721774.0 | 1775721777.0 | (10, True)  | (9, True)
-    ^Z94VS27... | UserB   | 1775721777.0 | 1775721780.0 | (14, True)  | (9, True)
-    ^Z94KVAB... | UserB   | 1775721780.0 | 1775721783.0 | (10, True)  | (10, True)
+    {'user_id': 'UserA', 'timestamp': 2, 'interaction_events': 3, 'valid_events': True}
+    {'user_id': 'UserB', 'timestamp': 3, 'interaction_events': 7, 'valid_events': True}
+    {'user_id': 'UserA', 'timestamp': 1, 'interaction_events': 7, 'valid_events': True}
+    {'user_id': 'UserB', 'timestamp': 12, 'interaction_events': 4, 'valid_events': True}
+    {'user_id': 'UserA', 'timestamp': 4, 'interaction_events': 12, 'valid_events': False}
+    {'user_id': 'UserB', 'timestamp': 8, 'interaction_events': 7, 'valid_events': True}
+    {'user_id': 'UserB', 'timestamp': 5, 'interaction_events': 5, 'valid_events': True}
+    {'user_id': 'UserA', 'timestamp': 11, 'interaction_events': 2, 'valid_events': True}
+    {'user_id': 'UserA', 'timestamp': 13, 'interaction_events': 4, 'valid_events': True}
+    {'user_id': 'UserB', 'timestamp': 6, 'interaction_events': 7, 'valid_events': True}
+    {'user_id': 'UserA', 'timestamp': 7, 'interaction_events': 9, 'valid_events': True}
+    {'user_id': 'UserB', 'timestamp': 14, 'interaction_events': 1, 'valid_events': True}
+    {'window_start': 0, 'window_end': 10, 'interaction_count': True, 'my_freq': True, 'interaction_distinct': True}
+    {'window_start': 10, 'window_end': 20, 'interaction_count': False, 'my_freq': False, 'interaction_distinct': True}
     ```

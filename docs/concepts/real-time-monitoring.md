@@ -11,21 +11,30 @@ Real-time data quality monitoring introduces challenges that do not appear in ba
 
 ## Stream DaQ approach
 
-Stream DaQ provides first-class controls for event-time semantics and late-data tolerance.
+Stream DaQ windows the stream by **event time**: you choose the column that holds when each event happened
+(`windowby_column`) and the window to group events by.
 
-```py title="Late data tolerance"
-daq.configure(
-    wait_for_late=30,  # wait up to 30 seconds for late records
-    time_column="event_timestamp",
+```py title="Event-time windows"
+task = Task(
+    input=input_source,
+    output=output_sink,
+    windowby_column="event_timestamp"
+)
+task.add_window_checks(
+    WindowDataQualityCheck("count", Count("value"), "(5, 15]"),
+    window=pw.temporal.tumbling(duration=30),
 )
 ```
+
+Each window produces its results **exactly once**, as soon as the event time in the stream passes the end of the
+window. Records that arrive after that, for a window that has already been closed, are not counted in it.
 
 ## Trade-offs to consider
 
 ### Latency vs completeness
 
-- Lower `wait_for_late` gives faster results but may miss late records.
-- Higher `wait_for_late` improves completeness but increases result latency.
+- Window results are emitted as soon as each window closes, so latency stays low and every window is reported once.
+- Records that arrive too late for their window are left out, so out-of-order streams can under-count.
 
 ### Memory vs statistical stability
 
@@ -34,7 +43,7 @@ daq.configure(
 
 ## Recommended starting point
 
-1. Start with conservative defaults (`wait_for_late=30` is a common baseline).
-2. Measure your real arrival-delay distribution.
+1. Use the column that records when each event happened as `windowby_column`, not the arrival time.
+2. Measure your real arrival-delay distribution, to know how often records arrive after their window has closed.
 3. Tune window sizes to your data frequency and operational SLAs.
 4. Validate behavior under realistic traffic patterns.
