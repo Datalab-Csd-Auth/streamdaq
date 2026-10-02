@@ -82,3 +82,50 @@ class TestSpawnedWorker:
         lines = [line for line in window_output.read_text().splitlines() if line.strip()]
         assert len(lines) == 1
         assert json.loads(lines[0])[_CHECK_NAME] is True
+
+
+# ``__time__`` is the arrival order and ``timestamp`` the event time. The record with
+# ``timestamp`` 3 arrives late: after ``timestamp`` 12 has already reached window [0, 10).
+_LATE_RECORD_DATA = """
+    timestamp | value | __time__
+    1         | 1     | 2
+    2         | 1     | 4
+    12        | 1     | 6
+    3         | 1     | 8
+    14        | 1     | 10
+"""
+
+
+def _window_counts(**task_kwargs) -> dict[int, int]:
+    """Run a ``Count`` window check over the late-record data, keyed by window start."""
+
+    def read_stream() -> pw.Table:
+        return pw.debug.table_from_markdown(_LATE_RECORD_DATA)
+
+    task = Task(
+        input=read_stream,
+        output=lambda *a, **k: None,
+        windowby_column="timestamp",
+        **task_kwargs,
+    )
+    task.add_window_checks(
+        WindowDataQualityCheck("count", MEASURE_REGISTRY["Count"]("value")),
+        window=pw.temporal.tumbling(duration=10),
+    )
+    _, window_table = task._Task__construct_pw_dag(read_stream())
+    rows = pw.debug.table_to_pandas(window_table).to_dict("records")
+    return {row["window_start"]: row["count"] for row in rows}
+
+
+class TestWaitForLate:
+    def test_defaults_to_none(self):
+        assert _task().wait_for_late is None
+
+    def test_late_record_is_dropped_by_default(self):
+        assert _window_counts() == {0: 2, 10: 2}
+
+    def test_late_record_is_counted_within_wait_for_late(self):
+        assert _window_counts(wait_for_late=5) == {0: 3, 10: 2}
+
+    def test_late_record_is_dropped_when_later_than_wait_for_late(self):
+        assert _window_counts(wait_for_late=1) == {0: 2, 10: 2}

@@ -24,6 +24,7 @@ def build_task(config: TaskConfig) -> Task:
         output=output_callable,
         output_kwargs=config.output.params,
         windowby_column=config.windowby_column,
+        wait_for_late=config.wait_for_late,
     )
 
     # Add Instant Checks

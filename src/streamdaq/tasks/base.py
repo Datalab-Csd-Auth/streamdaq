@@ -37,6 +37,7 @@ class Task:
     window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
     window: Window | None = None
     windowby_column: str | None = None
+    wait_for_late: int | None = None
     include_window_bounds: bool = True
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
@@ -205,7 +206,7 @@ class Task:
             table[self.windowby_column],
             # window=self.window.to_pathway_window(), TODO FIX THIS
             window=self.window,
-            behavior=pw.temporal.exactly_once_behavior(),
+            behavior=pw.temporal.exactly_once_behavior(shift=self.wait_for_late),
         ).reduce(**reduce_kwargs)
         measurements_table = reduced.with_columns(**measurement_kwargs)
         assessments_table = measurements_table.with_columns(**assessment_kwargs)

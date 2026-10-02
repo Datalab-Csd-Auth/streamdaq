@@ -1,7 +1,12 @@
 import pytest
 from fastapi import HTTPException
 
-from streamdaq.api.models import InstantCheckConfig, MeasureConfig, WindowCheckConfig
+from streamdaq.api.models import (
+    InstantCheckConfig,
+    MeasureConfig,
+    TaskConfig,
+    WindowCheckConfig,
+)
 from streamdaq.custom import assessment
 
 
@@ -110,3 +115,11 @@ class TestInstantCheckConfigMustBe:
         )
 
         assert config.params["must_be"] == ">= 2"
+
+
+class TestTaskConfigWaitForLate:
+    def test_defaults_to_none(self):
+        assert TaskConfig(name="t").wait_for_late is None
+
+    def test_accepts_a_value(self):
+        assert TaskConfig(name="t", wait_for_late=5).wait_for_late == 5
