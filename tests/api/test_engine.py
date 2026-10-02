@@ -100,3 +100,15 @@ class TestBuildTaskOptionalSections:
         task = build_task(config)
         assert task.window_checks == []
         assert task.window is None
+
+
+class TestBuildTaskWindowBounds:
+    def test_include_window_bounds_defaults_to_true(self):
+        task = build_task(_full_config())
+        assert task.include_window_bounds is True
+
+    def test_include_window_bounds_false_is_passed_to_task(self):
+        config = _full_config()
+        config.include_window_bounds = False
+        task = build_task(config)
+        assert task.include_window_bounds is False

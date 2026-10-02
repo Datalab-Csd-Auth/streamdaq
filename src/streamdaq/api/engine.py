@@ -24,6 +24,7 @@ def build_task(config: TaskConfig) -> Task:
         output=output_callable,
         output_kwargs=config.output.params,
         windowby_column=config.windowby_column,
+        include_window_bounds=config.include_window_bounds,
     )
 
     # Add Instant Checks
