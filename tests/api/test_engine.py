@@ -112,3 +112,15 @@ class TestBuildTaskWindowBounds:
         config.include_window_bounds = False
         task = build_task(config)
         assert task.include_window_bounds is False
+
+
+class TestBuildTaskWaitForLate:
+    def test_wait_for_late_is_passed_to_task(self):
+        config = _full_config()
+        config.wait_for_late = 5
+        task = build_task(config)
+        assert task.wait_for_late == 5
+
+    def test_wait_for_late_defaults_to_none(self):
+        task = build_task(_full_config())
+        assert task.wait_for_late is None
