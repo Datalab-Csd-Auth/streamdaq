@@ -2,10 +2,14 @@ import pytest
 from fastapi import HTTPException
 
 from streamdaq.api.models import (
+    InputConfig,
     InstantCheckConfig,
     MeasureConfig,
+    OutputConfig,
     TaskConfig,
     WindowCheckConfig,
+    WindowChecksConfig,
+    WindowConfig,
 )
 from streamdaq.custom import assessment
 
@@ -117,9 +121,102 @@ class TestInstantCheckConfigMustBe:
         assert config.params["must_be"] == ">= 2"
 
 
-class TestTaskConfigWaitForLate:
-    def test_defaults_to_none(self):
-        assert TaskConfig(name="t").wait_for_late is None
+def _window_check() -> WindowCheckConfig:
+    return WindowCheckConfig(
+        name="w",
+        measure=MeasureConfig(type="Mean", params={"column": "a"}),
+        must_be="[0, 1]",
+    )
 
-    def test_accepts_a_value(self):
-        assert TaskConfig(name="t", wait_for_late=5).wait_for_late == 5
+
+def _window_checks_config(*checks) -> WindowChecksConfig:
+    return WindowChecksConfig(
+        window=WindowConfig(type="tumbling", params={"duration": 5}), checks=list(checks)
+    )
+
+
+def _instant_check() -> InstantCheckConfig:
+    return InstantCheckConfig(
+        name="r", check_class="InRange", params={"column": "a", "low": 0, "high": 1}
+    )
+
+
+class TestTaskConfigStartabilityValidation:
+    """``TaskConfig`` validates startability at construction with rich 422 messages.
+
+    Valid shapes: instant-only (no windowby, no window checks), window-only (windowby + window
+    checks), or both. A windowby column and window checks are coupled: neither is allowed
+    without the other.
+    """
+
+    def _config_kwargs(self, **overrides) -> dict:
+        base = dict(
+            name="t",
+            windowby_column="ts",
+            input=InputConfig(type="csv", params={"path": "/tmp/x.csv"}),
+            output=OutputConfig(type="jsonlines", params={"filename": "o.jsonl"}),
+            instant_checks=[_instant_check()],
+            window_checks_config=_window_checks_config(_window_check()),
+        )
+        base.update(overrides)
+        return base
+
+    def test_both_instant_and_window_is_accepted(self):
+        config = TaskConfig(**self._config_kwargs())
+        assert config.name == "t"
+
+    def test_instant_only_task_is_accepted(self):
+        config = TaskConfig(**self._config_kwargs(windowby_column=None, window_checks_config=None))
+        assert config.instant_checks and config.window_checks_config is None
+
+    def test_window_only_task_is_accepted(self):
+        config = TaskConfig(**self._config_kwargs(instant_checks=[]))
+        assert config.instant_checks == []
+
+    def test_wait_for_late_defaults_to_none(self):
+        config = TaskConfig(**self._config_kwargs())
+        assert config.wait_for_late is None
+
+    def test_wait_for_late_accepts_a_value(self):
+        config = TaskConfig(**self._config_kwargs(wait_for_late=5))
+        assert config.wait_for_late == 5
+
+    @pytest.mark.parametrize(
+        "override, expected_error",
+        [
+            (dict(input=None), "Input configuration is required."),
+            (dict(output=None), "Output configuration is required."),
+        ],
+    )
+    def test_missing_input_or_output_reported(self, override, expected_error):
+        with pytest.raises(HTTPException) as exc_info:
+            TaskConfig(**self._config_kwargs(**override))
+        assert exc_info.value.status_code == 422
+        assert expected_error in exc_info.value.detail
+
+    def test_no_checks_at_all_is_rejected(self):
+        with pytest.raises(HTTPException) as exc_info:
+            TaskConfig(
+                **self._config_kwargs(
+                    instant_checks=[],
+                    windowby_column=None,
+                    window_checks_config=None,
+                )
+            )
+        assert exc_info.value.status_code == 422
+        assert "At least one instant check or window check is required." in exc_info.value.detail
+
+    def test_window_checks_without_windowby_is_rejected(self):
+        with pytest.raises(HTTPException) as exc_info:
+            TaskConfig(**self._config_kwargs(windowby_column=None))
+        assert exc_info.value.status_code == 422
+        assert "Window checks require a windowby column." in exc_info.value.detail
+
+    def test_windowby_without_window_checks_is_rejected(self):
+        with pytest.raises(HTTPException) as exc_info:
+            TaskConfig(**self._config_kwargs(window_checks_config=None))
+        assert exc_info.value.status_code == 422
+        assert (
+            "A windowby column is provided but no window checks: "
+            "Unnecessary windowby or forgotten window check(s)."
+        ) in exc_info.value.detail

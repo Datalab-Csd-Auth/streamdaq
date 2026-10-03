@@ -5,9 +5,9 @@ from urllib.error import URLError
 
 from fastapi.testclient import TestClient
 
-from streamdaq.api.app import app
 from streamdaq.api.models import APIHeartbeat
 from streamdaq.api.utils import is_API_running
+from tests.api.conftest import app
 
 
 @contextmanager

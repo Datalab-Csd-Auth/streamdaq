@@ -1,29 +1,23 @@
 from unittest.mock import MagicMock
 
-import pytest
+from fastapi.testclient import TestClient
 
-from streamdaq.api.app import (
-    _DEFAULT_GRACEFUL_KILL_TIMEOUT_SECONDS,
-    get_active_session,
-    set_active_session,
-    shut_down_active_session,
-)
+from streamdaq.api.app import StreamdaqApi
+from streamdaq.api.utils import DEFAULT_GRACEFUL_KILL_TIMEOUT_SECONDS
 
 
-@pytest.fixture(autouse=True)
-def restore_active_session():
-    original = get_active_session()
-    yield
-    set_active_session(original)
-
-
-class TestShutDownActiveSession:
-    def test_kills_active_session_with_default_timeout(self):
+class TestApiLifespan:
+    def _initialize_session_and_api(self) -> tuple:
         session = MagicMock()
-        set_active_session(session)
-        shut_down_active_session()
-        session.gracefully_kill.assert_called_once_with(_DEFAULT_GRACEFUL_KILL_TIMEOUT_SECONDS)
+        api = StreamdaqApi(session)
+        return session, api
 
-    def test_no_active_session_is_a_noop(self):
-        set_active_session(None)
-        shut_down_active_session()  # must not raise
+    def test_shutdown_gracefully_kills_the_owned_session(self):
+        session, api = self._initialize_session_and_api()
+        with TestClient(api.app):
+            session.gracefully_kill.assert_not_called()
+        session.gracefully_kill.assert_called_once_with(DEFAULT_GRACEFUL_KILL_TIMEOUT_SECONDS)
+
+    def test_session_is_exposed_on_app_state(self):
+        session, api = self._initialize_session_and_api()
+        assert api.app.state.session is session

@@ -26,10 +26,31 @@ class Argument:
         }
 
 
+@dataclass
+class BooleanFlag:
+    short_name: str
+    long_name: str
+    help_text: str | None
+    value_when_set: bool = True
+
+    @property
+    def args(self) -> tuple:
+        return ("-" + self.short_name, "--" + self.long_name)
+
+    @property
+    def kwargs(self):
+        return {
+            "action": "store_true" if self.value_when_set else "store_false",
+            "help": self.help_text + f" (when set: {str(self.value_when_set)})",
+        }
+
+
 PORT = Argument("P", "port", int, 8080, "Port for the API server")
 HOST = Argument("H", "host", str, "127.0.0.1", "Host address for the API server")
 SESSION = Argument("S", "session", str, "streamdaq_api_session", "The streamdaq API session name")
 FILES = Argument("F", "files", str, None, "Additional files to load (e.g., custom measures)")
+ROOT = Argument("R", "root", str, "./", "The Streamdaq root directory to initialize internal files")
+CLEAR_FLAG = BooleanFlag("C", "clear", "Whether to wipe the persisted session on startup")
 
 
 def _build_serve_parser(serve_parser: argparse.ArgumentParser) -> None:
@@ -37,6 +58,8 @@ def _build_serve_parser(serve_parser: argparse.ArgumentParser) -> None:
     serve_parser.add_argument(*HOST.args, **HOST.kwargs)
     serve_parser.add_argument(*SESSION.args, **SESSION.kwargs)
     serve_parser.add_argument(*FILES.args, **FILES.kwargs)
+    serve_parser.add_argument(*ROOT.args, **ROOT.kwargs)
+    serve_parser.add_argument(*CLEAR_FLAG.args, **CLEAR_FLAG.kwargs)
     serve_parser.set_defaults(handler_function=serve)
 
 

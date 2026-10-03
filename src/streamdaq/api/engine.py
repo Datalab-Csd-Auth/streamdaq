@@ -12,42 +12,36 @@ def build_task(config: TaskConfig) -> Task:
     """
     Translates an API TaskConfig model into a StreamDAQ Task object.
     """
-    # Build Input
-    input_callable = SOURCE_REGISTRY[config.input.type](config.input.params)
-
-    # Build Output
-    output_callable = SINK_REGISTRY[config.output.type]
-
     task = Task(
-        name=config.name,
-        input=input_callable,
-        output=output_callable,
-        output_kwargs=config.output.params,
-        windowby_column=config.windowby_column,
-        include_window_bounds=config.include_window_bounds,
-        wait_for_late=config.wait_for_late,
+        **{
+            **config.task_kwargs,
+            "input": SOURCE_REGISTRY[config.input.type](config.input.params),
+            "output": SINK_REGISTRY[config.output.type],
+        }
     )
 
     # Add Instant Checks
     instant_checks = []
-    for ic in config.instant_checks:
-        check_class = INSTANT_CHECK_REGISTRY[ic.check_class]
-        instant_checks.append(check_class(name=ic.name, **ic.params))
+    for instant_check in config.instant_checks:
+        check_class = INSTANT_CHECK_REGISTRY[instant_check.check_class]
+        instant_checks.append(check_class(name=instant_check.name, **instant_check.params))
 
     if instant_checks:
         task.add_instant_checks(*instant_checks)
 
     # Add Window Checks
     if config.window_checks_config:
-        wc_config = config.window_checks_config
-        window_func = WINDOW_REGISTRY[wc_config.window.type]
-        window = window_func(**wc_config.window.params)
+        window_checks_config = config.window_checks_config
+        window_func = WINDOW_REGISTRY[window_checks_config.window.type]
+        window = window_func(**window_checks_config.window.params)
 
         window_checks = []
-        for wc in wc_config.checks:
-            measure_class = MEASURE_REGISTRY[wc.measure.type]
-            measure = measure_class(**wc.measure.params)
-            window_checks.append(WindowDataQualityCheck(wc.name, measure, wc.must_be))
+        for window_check in window_checks_config.checks:
+            measure_class = MEASURE_REGISTRY[window_check.measure.type]
+            measure = measure_class(**window_check.measure.params)
+            window_checks.append(
+                WindowDataQualityCheck(window_check.name, measure, window_check.must_be)
+            )
 
         task.add_window_checks(*window_checks, window=window)
 

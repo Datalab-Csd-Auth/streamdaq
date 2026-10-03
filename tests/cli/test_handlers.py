@@ -8,18 +8,22 @@ from streamdaq.measures.registry import MEASURE_REGISTRY
 
 
 class TestServeHandler:
-    def test_mounts_a_named_session_and_serves_the_api(self):
-        args = Namespace(host="0.0.0.0", port=9000, session="my_session", files=None)
+    @pytest.mark.parametrize("clear", [False, True])
+    def test_creates_a_named_session_and_serves_it(self, clear):
+        args = Namespace(
+            host="0.0.0.0", port=9000, session="my_session", files=None, root="./", clear=clear
+        )
         with (
             patch("streamdaq.cli.handlers.Session") as mock_session_cls,
-            patch("streamdaq.cli.handlers.set_active_session") as mock_mount,
+            patch("streamdaq.cli.handlers.serve_session") as mock_serve,
         ):
             session = mock_session_cls.return_value
             serve(args)
 
-        mock_session_cls.assert_called_once_with(name="my_session")
-        mock_mount.assert_called_once_with(session)
-        session.serve_api.assert_called_once_with(host="0.0.0.0", port=9000)
+        mock_session_cls.assert_called_once_with(
+            name="my_session", clear=clear, root_path="./", files_path=None
+        )
+        mock_serve.assert_called_once_with(session, host="0.0.0.0", port=9000)
 
     def test_loads_custom_measure_file_when_files_is_set(self, tmp_path):
         measure_file = tmp_path / "handler_measure.py"
@@ -29,16 +33,21 @@ class TestServeHandler:
             "def _handler_sum(d):\n"
             '    return sum(d["x"])\n'
         )
-        args = Namespace(host="0.0.0.0", port=9000, session="my_session", files=str(measure_file))
+        args = Namespace(
+            host="0.0.0.0",
+            port=9000,
+            session="my_session",
+            files=str(measure_file),
+            root=None,
+            clear=False,
+        )
         with (
-            patch("streamdaq.cli.handlers.Session") as mock_session_cls,
-            patch("streamdaq.cli.handlers.set_active_session"),
+            patch("streamdaq.cli.handlers.Session"),
+            patch("streamdaq.cli.handlers.serve_session"),
         ):
-            session = mock_session_cls.return_value
             serve(args)
 
         assert "_HandlerLoaded" in MEASURE_REGISTRY
-        session.serve_api.assert_called_once_with(host="0.0.0.0", port=9000)
 
 
 class TestStatusHandler:
