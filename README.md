@@ -23,6 +23,12 @@ You can verify installation with `pip install streamdaq`.
 
 To download a specific version of Streamdaq use `pip install --update streamdaq==<your_desired_version>`.
 
+> [!TIP]
+> ✨ Streamdaq V2 comes with uplifted documentation!
+> More code examples 💻 and
+> clearer explanation of concepts 📚, all in a single place 👉 https://datalab-csd-auth.github.io/streamdaq/.
+> Check it out!
+
 ### TL;DR
 
 `streamdaq` allows you to monitor the quality of your data streams in just a few lines of Python code.
