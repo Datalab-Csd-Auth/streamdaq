@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import auto
 from typing import Any, Literal
 
 from fastapi import HTTPException, status
@@ -8,6 +8,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from strenum import LowercaseStrEnum
 
 from streamdaq.api.adapters import validate_coerce_params
 from streamdaq.checks.registry import INSTANT_CHECK_REGISTRY
@@ -16,6 +17,7 @@ from streamdaq.io.sources.registry import SOURCE_REGISTRY
 from streamdaq.measures.registry import MEASURE_REGISTRY
 from streamdaq.temporal.windows.registry import WINDOW_REGISTRY
 from streamdaq.translators.string_to_callable import resolve_must_be
+from streamdaq.utils.enums import Py312EnumMeta
 
 
 class InputConfig(BaseModel):
@@ -152,12 +154,12 @@ class WindowChecksConfig(BaseModel):
     checks: list[WindowCheckConfig]
 
 
-class TaskStatus(StrEnum):
+class TaskStatus(LowercaseStrEnum, metaclass=Py312EnumMeta):
     """Lifecycle status of a task."""
 
-    RUNNING = "running"
-    FINISHED = "finished"
-    ERROR = "error"
+    RUNNING = auto()
+    FINISHED = auto()
+    ERROR = auto()
 
 
 class TaskConfig(BaseModel):
@@ -169,9 +171,8 @@ class TaskConfig(BaseModel):
     )
     wait_for_late: int | None = Field(
         None,
-        description="Number of time units to wait for late data before closing the window."
-        "The time unit is determined by the window configuration."
-        "If None, late data will be ignored.",
+        description="Number of time units to wait for late data before finalizing a window "
+        "check result. If None, late data is ignored.",
     )
     input: InputConfig | None = Field(None, description="Input source configuration.")
     output: OutputConfig | None = Field(None, description="Output sink configuration.")
@@ -179,9 +180,54 @@ class TaskConfig(BaseModel):
     window_checks_config: WindowChecksConfig | None = None
     status: TaskStatus = Field(default=TaskStatus.RUNNING, description="Current lifecycle status.")
 
+    @property
+    def _task_kwargs_exclude_list(self) -> list[str]:
+        # Add a field here if it needs to be excluded when constructing a Task's kwargs
+        return ["instant_checks", "window_checks_config", "status"]
+
+    @property
+    def _task_kwargs_mutations(self) -> dict[str, Any]:
+        # Add a field here if it needs to be mutated before constructing a Task's kwargs
+        return {
+            "output_kwargs": self.output.params,
+        }
+
+    @property
+    def task_kwargs(self) -> dict[str, Any]:
+        """kwargs to construct a Task instance with the values of the current config object"""
+        kwargs = {**self.__dict__, **self._task_kwargs_mutations}
+        for field in self._task_kwargs_exclude_list:
+            kwargs.pop(field)
+        return kwargs
+
+    # https://pydantic.dev/docs/validation/dev/concepts/models/#defining-a-custom-__init__
+    def model_post_init(self, context: Any) -> None:
+        errors = []
+        if self.input is None:
+            errors.append("Input configuration is required.")
+        if self.output is None:
+            errors.append("Output configuration is required.")
+
+        has_instant_checks = bool(self.instant_checks)
+        has_window_checks = bool(self.window_checks_config and self.window_checks_config.checks)
+        has_windowby = bool(self.windowby_column)
+
+        if not has_instant_checks and not has_window_checks:
+            errors.append("At least one instant check or window check is required.")
+        if has_window_checks and not has_windowby:
+            errors.append("Window checks require a windowby column.")
+        if has_windowby and not has_window_checks:
+            errors.append(
+                "A windowby column is provided but no window checks: "
+                "Unnecessary windowby or forgotten window check(s)."
+            )
+
+        if errors:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
+
 
 class SessionStatus(BaseModel):
-    status: Literal["running", "stopped", "failed"]
+    status: Literal["running"]
     active_tasks_count: int
     version: str
 

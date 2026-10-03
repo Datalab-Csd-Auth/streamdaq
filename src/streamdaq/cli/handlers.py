@@ -1,17 +1,24 @@
 import argparse
 import sys
 
-from streamdaq.api.app import set_active_session
+from streamdaq.api.server import serve as serve_session
 from streamdaq.api.utils import is_API_running
 from streamdaq.orchestration.utils import load_additional_files
 from streamdaq.sessions.base import Session
 
 
 def serve(args: argparse.Namespace):
-    session = Session(name=args.session)
-    session.files_path = args.files
-    set_active_session(session)
+    session = Session(
+        name=args.session,
+        clear=args.clear,
+        files_path=args.files,
+        root_path=args.root,
+    )
     print(f"🪡  Initialized a streamdaq API session with name '{args.session}'.")
+    print(
+        f"🌱 The streamdaq root directory is set to '{session.root_path}/' "
+        f"{'(starting off clear)' if args.clear else '(reusing existing root)'}"
+    )
 
     if args.files:
         load_additional_files(args.files)
@@ -19,7 +26,7 @@ def serve(args: argparse.Namespace):
 
     print(f"🦆 Attempting to start streamdaq API on http://{args.host}:{args.port}.")
     print(f"ℹ️  Visit http://{args.host}:{args.port}/docs for API Swagger UI.\n")
-    session.serve_api(host=args.host, port=args.port)
+    serve_session(session, host=args.host, port=args.port)
 
 
 def status(args):
