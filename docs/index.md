@@ -39,7 +39,7 @@ def is_seven_frequent(most_frequent: tuple) -> bool:
 task = Task(
     name="interactions",
     input=read_stream,  # (2)!
-    output=output_sink, # (1)!
+    output=output_sink,  # (1)!
     windowby_column="timestamp",
     include_window_bounds=True,  # (3)!
 )

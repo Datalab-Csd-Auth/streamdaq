@@ -19,7 +19,7 @@
 pip install streamdaq
 ```
 
-You can verify installation with `pip install streamdaq`. 
+You can verify installation with `pip install streamdaq`.
 
 To download a specific version of Streamdaq use `pip install --update streamdaq==<your_desired_version>`.
 
@@ -34,6 +34,7 @@ from streamdaq.measures import Count, DistinctCount, MostFrequent
 from streamdaq.sessions import Session
 from streamdaq.tasks import Task
 import pathway as pw
+
 
 def is_seven_frequent(most_frequent: tuple) -> bool:
     return 7 in most_frequent
@@ -86,8 +87,8 @@ user_id | timestamp | interaction_events | valid_events
 
 # Window Checks Output
 window_start | window_end | interaction_count | lucky_sevens | interaction_distinct
-      0      |     10     |       True        |    True      |        True          
-     10      |     20     |       False       |    False     |        True          
+      0      |     10     |       True        |    True      |        True
+     10      |     20     |       False       |    False     |        True
 ```
 
 ## Motivation

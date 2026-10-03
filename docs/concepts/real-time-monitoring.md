@@ -18,7 +18,7 @@ Stream DaQ windows the stream by **event time**: you choose the column that hold
 task = Task(
     input=input_source,
     output=output_sink,
-    windowby_column="event_timestamp"
+    windowby_column="event_timestamp",
 )
 task.add_window_checks(
     WindowDataQualityCheck("count", Count("value"), "(5, 15]"),
