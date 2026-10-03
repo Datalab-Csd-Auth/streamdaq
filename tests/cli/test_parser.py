@@ -11,6 +11,7 @@ class TestBuildParser:
         assert args.host == "127.0.0.1"
         assert args.port == 8080
         assert args.session == "streamdaq_api_session"
+        assert args.root == "./"
         assert args.handler_function is serve
 
     def test_serve_custom_values(self):
@@ -31,9 +32,26 @@ class TestBuildParser:
         args = build_parser().parse_args(["serve", "-F", "custom.py"])
         assert args.files == "custom.py"
 
+    def test_serve_root_long(self):
+        args = build_parser().parse_args(["serve", "--root", "a/custom/root/"])
+        assert args.root == "a/custom/root/"
+
+    def test_serve_root_short(self):
+        args = build_parser().parse_args(["serve", "-R", "a/custom/root/"])
+        assert args.root == "a/custom/root/"
+
     def test_serve_files_default_none(self):
         args = build_parser().parse_args(["serve"])
         assert args.files is None
+
+    def test_serve_clear_defaults_to_false(self):
+        args = build_parser().parse_args(["serve"])
+        assert args.clear is False
+
+    @pytest.mark.parametrize("flag", ["--clear", "-C"])
+    def test_serve_clear_flag_enables_wipe(self, flag):
+        args = build_parser().parse_args(["serve", flag])
+        assert args.clear is True
 
     def test_status_defaults_and_handler(self):
         args = build_parser().parse_args(["status"])

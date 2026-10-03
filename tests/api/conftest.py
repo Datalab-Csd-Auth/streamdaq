@@ -1,19 +1,24 @@
-from streamdaq.api.app import set_active_session
+import tempfile
+
+from streamdaq.api.app import StreamdaqApi
 from streamdaq.sessions.base import Session
 
-test_session = Session(name="api_test_session")
-set_active_session(test_session)
+root_path = tempfile.mkdtemp(prefix="streamdaq-api-tests-")
+test_session = Session(name="api_test_session", root_path=root_path)
+test_api = StreamdaqApi(test_session)
+app = test_api.app
 
 
 def make_mock_session():
-    """Create a MagicMock session that shares the real test session's db.
-
-    Tests that patch ``_get_session`` need the mock to carry a real
-    LMDB ``db`` so that ``_get_tasks_store()`` can read/write
-    task configs through the ``NamespaceStore``.
-    """
+    """Create a MagicMock session that shares the real test session's db and store."""
     from unittest.mock import MagicMock
+
+    from streamdaq.api.models import TaskConfig
+    from streamdaq.storage.lmdb_store import NamespaceStore
 
     mock = MagicMock()
     mock.db = test_session.db
+    mock.tasks_store.side_effect = lambda: NamespaceStore(
+        test_session.db, "api_tasks", value_type=TaskConfig
+    )
     return mock

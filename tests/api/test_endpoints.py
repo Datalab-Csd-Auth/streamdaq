@@ -3,9 +3,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-import streamdaq.api.routes as routes
-from streamdaq.api.app import app
-from tests.api.conftest import make_mock_session
+from streamdaq.api.routes import get_session
+from tests.api.conftest import app, make_mock_session, test_session
 
 client = TestClient(app)
 
@@ -13,10 +12,11 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_tasks_store():
     # Setup: clear tasks before test
-    routes._get_tasks_store().clear()
+    test_session.tasks_store().clear()
     yield
     # Teardown: clear tasks after test
-    routes._get_tasks_store().clear()
+    test_session.tasks_store().clear()
+    app.dependency_overrides.clear()
 
 
 def test_create_task_invalid_measure_in_window_checks():
@@ -62,51 +62,72 @@ def test_create_task_invalid_instant_check():
 
 
 @patch("streamdaq.api.routes.build_task")
-@patch("streamdaq.api.routes._get_session")
-def test_create_task_valid(mock_get_session, mock_build_task):
+def test_create_task_valid(mock_build_task):
     mock_session = make_mock_session()
-    mock_get_session.return_value = mock_session
+    app.dependency_overrides[get_session] = lambda: mock_session
     mock_task = MagicMock()
     mock_build_task.return_value = mock_task
 
-    payload1 = {
-        "name": "Valid Task 1",
-        "windowby_column": "age",
-        "window_checks_config": {"window": {"type": "sliding", "params": {}}, "checks": []},
-        "include_window_bounds": True,
-        "wait_for_late": 5,
+    io_skeleton = {
         "input": {"type": "kafka", "params": {}},
         "output": {"type": "jsonlines", "params": {}},
+    }
+    window_checks = {
+        "windowby_column": "age",
+        "window_checks_config": {
+            "window": {"type": "sliding", "params": {}},
+            "checks": [
+                {
+                    "name": "mean_ok",
+                    "measure": {"type": "Mean", "params": {"column": "age"}},
+                    "must_be": "[0, 100]",
+                }
+            ],
+        },
+    }
+    instant_checks = {
         "instant_checks": [
             {
                 "name": "test_instant",
                 "check_class": "InRange",
                 "params": {"column": "age", "low": 0, "high": 100},
             }
-        ],
+        ]
     }
 
-    payload2 = {
-        "name": "Valid Task 2",
-        "windowby_column": "salary",
-        "window_checks_config": {"window": {"type": "tumbling", "params": {}}, "checks": []},
-        "input": {"type": "kafka", "params": {}},
-        "output": {"type": "jsonlines", "params": {}},
-        "instant_checks": [
-            {
-                "name": "test_instant2",
-                "check_class": "InRange",
-                "params": {"column": "salary", "low": 10, "high": 500},
-            }
-        ],
+    valid_payload_only_window_checks = {
+        "name": "Window Only",
+        "wait_for_late": 5,
+        **io_skeleton,
+        **window_checks,
+    }
+    valid_payload_only_instant_checks = {
+        "name": "Instant Only",
+        "wait_for_late": 5,
+        **io_skeleton,
+        **instant_checks,
+    }
+    valid_payload_window_instant_checks = {
+        "name": "Window and Instant",
+        **io_skeleton,
+        **window_checks,
+        **instant_checks,
     }
 
-    response = client.post("/api/v1/bulk_create", json=[payload1, payload2])
+    response = client.post(
+        "/api/v1/bulk_create",
+        json=[
+            valid_payload_only_window_checks,
+            valid_payload_only_instant_checks,
+            valid_payload_window_instant_checks,
+        ],
+    )
     assert response.status_code == 201
-    assert response.json()["task_ids"] == ["Valid Task 1", "Valid Task 2"]
-    assert "Valid Task 1" in routes._get_tasks_store()
-    assert "Valid Task 2" in routes._get_tasks_store()
+    assert response.json()["task_ids"] == ["Window Only", "Instant Only", "Window and Instant"]
+    assert "Window Only" in test_session.tasks_store()
+    assert "Instant Only" in test_session.tasks_store()
+    assert "Window and Instant" in test_session.tasks_store()
 
-    assert mock_build_task.call_count == 2
-    assert mock_session.add_tasks.call_count == 2
-    assert mock_task._start_pw_process.call_count == 2
+    assert mock_build_task.call_count == 3
+    assert mock_session.add_tasks.call_count == 3
+    assert mock_task._start_pw_process.call_count == 3
