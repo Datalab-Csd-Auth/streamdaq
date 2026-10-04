@@ -10,20 +10,30 @@ PYTHON_VERSIONS = ["3.11", "3.12", "3.13"]
 @nox.session(python=PYTHON_VERSIONS)
 def tests(session: Session) -> None:
     """Run the test suite with pytest and coverage."""
-    session.install(".[test]")
-    session.run("pytest")
-
-
-@nox.session(name="integration-tests", python=PYTHON_VERSIONS)
-def integration_tests(session: Session) -> None:
-    """Run the end-to-end API integration tests (opt-in; excluded from the default run)."""
+    unit_tests_path = "tests/unit"
     session.install(".[test]")
     session.run(
         "pytest",
-        "integration-tests",
+        unit_tests_path,
         "-o",
         "addopts=",
         "-o",
-        "testpaths=integration-tests",
-        env={"PYTHONPATH": "integration-tests"},
+        f"testpaths={unit_tests_path}",
+        env={"PYTHONPATH": unit_tests_path},
+    )
+
+
+@nox.session(name="integration", python=PYTHON_VERSIONS)
+def integration_tests(session: Session) -> None:
+    """Run the integration tests (opt-in; excluded from the default run)."""
+    integration_tests_path = "tests/integration"
+    session.install(".[test]")
+    session.run(
+        "pytest",
+        integration_tests_path,
+        "-o",
+        "addopts=",
+        "-o",
+        f"testpaths={integration_tests_path}",
+        env={"PYTHONPATH": integration_tests_path},
     )

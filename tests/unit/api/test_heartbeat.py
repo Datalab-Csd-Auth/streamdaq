@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from streamdaq.api.models import APIHeartbeat
 from streamdaq.api.utils import is_API_running
-from tests.api.conftest import app
+from unit.api.conftest import app
 
 
 @contextmanager
