@@ -21,4 +21,4 @@ jobs:
           version: "latest"
       - run: uv tool install nox
       - name: Run end-to-end integration tests
-        run: nox -s integration-tests
+        run: nox -s integration

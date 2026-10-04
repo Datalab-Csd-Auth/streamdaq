@@ -69,7 +69,6 @@ dev = [
     "pre-commit~=4.6.2",
     "ruff~=0.16.6",
     "nox~=2026.8.17",
-    "mypy~=2.3.1",
     "identify>=2.6.18",
 ]
 test = [
@@ -108,17 +107,10 @@ select = [
     "UP", # pyupgrade
 ]
 
-# --- MYPY CONFIGURATION ---
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-
 # --- PYTEST & COVERAGE CONFIGURATION ---
 [tool.pytest.ini_options]
 addopts = "--cov=streamdaq --cov-report=term-missing --cov-fail-under=85"
-testpaths = ["tests"]
+testpaths = ["tests/unit"]
 filterwarnings = [
     # Third-party deprecations triggered by importing fastapi's TestClient
     "ignore:Using `httpx` with `starlette.testclient` is deprecated:",

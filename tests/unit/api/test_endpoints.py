@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from streamdaq.api.routes import get_session
-from tests.api.conftest import app, make_mock_session, test_session
+from unit.api.conftest import app, make_mock_session, test_session
 
 client = TestClient(app)
 
