@@ -58,6 +58,15 @@ class TestSetConformanceCount:
     def test_scalar_allowed(self):
         assert set_conformance_count([5, 10], 5) == 1
 
+    def test_only_most_frequent_counts_the_mode_elements(self):
+        assert set_conformance_count([1, 1, 2, 3], {1}, only_most_frequent=True) == 1
+
+    def test_only_most_frequent_excludes_non_mode_matches(self):
+        assert set_conformance_count([1, 1, 2, 3], {2, 3}, only_most_frequent=True) == 0
+
+    def test_only_most_frequent_with_tie_counts_all_winners(self):
+        assert set_conformance_count([1, 1, 2, 2, 3], {1, 2}, only_most_frequent=True) == 2
+
 
 class TestMostFrequentElements:
     def test_single_winner(self):

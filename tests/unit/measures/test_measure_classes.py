@@ -69,6 +69,7 @@ from streamdaq.measures.numeric.min_delta import MinDelta
 from streamdaq.measures.numeric.min_fractional_part_length import MinFractionalPartLength
 from streamdaq.measures.numeric.min_integer_part_length import MinIntegerPartLength
 from streamdaq.measures.numeric.percentiles import Percentiles
+from streamdaq.measures.numeric.standard_deviation import StandardDeviation
 from streamdaq.measures.numeric.sum import Sum
 from streamdaq.measures.numeric.variance import Variance
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
@@ -309,6 +310,7 @@ MEASURE_SPECS = [
     MeasureSpec(lambda: MinIntegerPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: Percentiles(column="x"), _ANY, [Tuple]),
     MeasureSpec(lambda: Variance(column="x"), _NUM, [], [([2, 4, 6], 2.6666666666666665)]),
+    MeasureSpec(lambda: StandardDeviation(column="x"), _NUM, [], [([2, 4, 6], 1.632993161855452)]),
     MeasureSpec(lambda: Sum(column="x"), _NUM, [], [([10, 20, 30], 60)]),
     MeasureSpec(lambda: DeltasTuple(column="x", time_column="t"), _NUM, [Tuple]),
     MeasureSpec(lambda: MaxDelta(column="x", time_column="t"), _NUM, [Tuple]),

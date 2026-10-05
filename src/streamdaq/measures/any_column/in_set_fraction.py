@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import pathway as pw
@@ -14,6 +14,7 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class InSetFraction(RoundableDataQualityMeasure):
     allowed_values: set[Any]
+    only_most_frequent: bool = field(default=False)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[RoundableDataQualityMeasure]]] = [Tuple, Count]
 
@@ -21,7 +22,8 @@ class InSetFraction(RoundableDataQualityMeasure):
         return self._round_reducer_if_needed(
             pw.apply_with_type(
                 lambda elements, total_count: fraction(
-                    set_conformance_count(elements, self.allowed_values), total_count
+                    set_conformance_count(elements, self.allowed_values, self.only_most_frequent),
+                    total_count,
                 ),
                 float,
                 pw.this[Tuple._get_internal_shared_column_name(self.column)],  # elements

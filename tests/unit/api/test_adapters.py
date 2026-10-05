@@ -23,6 +23,7 @@ class TestCoerceParamsViaTypeAdapter:
                     "high": 120,
                     "inclusive_low": True,
                     "inclusive_high": False,
+                    "only_most_frequent": False,
                 },
             ),
         ],
