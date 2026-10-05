@@ -69,6 +69,7 @@ from streamdaq.measures.numeric.min_delta import MinDelta
 from streamdaq.measures.numeric.min_fractional_part_length import MinFractionalPartLength
 from streamdaq.measures.numeric.min_integer_part_length import MinIntegerPartLength
 from streamdaq.measures.numeric.percentiles import Percentiles
+from streamdaq.measures.numeric.standard_deviation import StandardDeviation
 from streamdaq.measures.numeric.sum import Sum
 from streamdaq.measures.numeric.variance import Variance
 from streamdaq.utils.data_type_applicability import DataTypeApplicability
@@ -174,6 +175,13 @@ MEASURE_SPECS = [
         [([10, 20, 10, 30], 3)],
     ),
     MeasureSpec(
+        lambda: InSetCount(column="x", allowed_values={1, 2}, only_most_frequent=True),
+        _ANY,
+        [Tuple],
+        [([1, 1, 2, 3], 2), ([1, 1, 2, 2, 3], 4), ([3, 3, 1], 0)],
+        id="InSetCount_only_most_frequent",
+    ),
+    MeasureSpec(
         lambda: Monotonic(column="x", time_column="t"),
         _ANY,
         [Tuple],
@@ -209,6 +217,13 @@ MEASURE_SPECS = [
         lambda: DistinctPlaceholderFraction(column="x", placeholders=["N/A"]), _ANY, [Tuple, Count]
     ),
     MeasureSpec(lambda: InSetFraction(column="x", allowed_values={"a"}), _ANY, [Tuple, Count]),
+    MeasureSpec(
+        lambda: InSetFraction(column="x", allowed_values={1}, only_most_frequent=True),
+        _ANY,
+        [Tuple, Count],
+        [([1, 1, 1, 2], 0.75), ([1, 1, 2, 2, 3], 0.4), ([2, 2, 1], 0.0)],
+        id="InSetFraction_only_most_frequent",
+    ),
     MeasureSpec(lambda: MissingCount(column="x"), _ANY, [Tuple], [([1, None, "", 4], 2)]),
     MeasureSpec(
         lambda: MissingFraction(column="x"), _ANY, [Tuple, Count], [([1, None, "", 4], 0.5)]
@@ -274,7 +289,21 @@ MEASURE_SPECS = [
         id="FrozenNumbers[epsilon=5]",
     ),
     MeasureSpec(lambda: InRangeCount(column="x", low=0, high=100), _ANY, [Tuple]),
+    MeasureSpec(
+        lambda: InRangeCount(column="x", low=4, high=6, only_most_frequent=True),
+        _ANY,
+        [Tuple],
+        [([5, 5, 5, 1], 3), ([5, 5, 1, 1], 2), ([1, 1, 5], 0)],
+        id="InRangeCount_only_most_frequent",
+    ),
     MeasureSpec(lambda: InRangeFraction(column="x", low=0, high=100), _ANY, [Tuple, Count]),
+    MeasureSpec(
+        lambda: InRangeFraction(column="x", low=4, high=6, only_most_frequent=True),
+        _ANY,
+        [Tuple, Count],
+        [([5, 5, 5, 1], 0.75), ([5, 5, 1, 1], 0.5), ([1, 1, 5], 0.0)],
+        id="InRangeFraction_only_most_frequent",
+    ),
     MeasureSpec(lambda: MaxFractionalPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: MaxIntegerPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: Mean(column="x"), _NUM, [], [([10, 20, 30], 20.0)]),
@@ -309,6 +338,13 @@ MEASURE_SPECS = [
     MeasureSpec(lambda: MinIntegerPartLength(column="x"), _NUM, [Tuple]),
     MeasureSpec(lambda: Percentiles(column="x"), _ANY, [Tuple]),
     MeasureSpec(lambda: Variance(column="x"), _NUM, [], [([2, 4, 6], 2.6666666666666665)]),
+    MeasureSpec(
+        lambda: StandardDeviation(column="x"),
+        _NUM,
+        [],
+        # Identical values: rounding makes the variance slightly negative, the std must be 0
+        [([2, 4, 6], 1.632993161855452), ([0.1, 0.1, 0.1], 0.0), ([0.3] * 7, 0.0)],
+    ),
     MeasureSpec(lambda: Sum(column="x"), _NUM, [], [([10, 20, 30], 60)]),
     MeasureSpec(lambda: DeltasTuple(column="x", time_column="t"), _NUM, [Tuple]),
     MeasureSpec(lambda: MaxDelta(column="x", time_column="t"), _NUM, [Tuple]),

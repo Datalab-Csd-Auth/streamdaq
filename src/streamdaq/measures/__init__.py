@@ -60,6 +60,7 @@ from .numeric import (
     MinFractionalPartLength,
     MinIntegerPartLength,
     Percentiles,
+    StandardDeviation,
     Sum,
     Variance,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "MinFractionalPartLength",
     "MinIntegerPartLength",
     "Percentiles",
-    "Variance",
+    "StandardDeviation",
     "Sum",
+    "Variance",
 ]

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import pathway as pw
@@ -12,12 +12,15 @@ from streamdaq.utils.data_type_applicability import DataTypeApplicability
 @dataclass
 class InSetCount(DataQualityMeasure):
     allowed_values: set[Any]
+    only_most_frequent: bool = field(default=False)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
-            lambda elements: set_conformance_count(elements, self.allowed_values),
+            lambda elements: set_conformance_count(
+                elements, self.allowed_values, self.only_most_frequent
+            ),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
         )
