@@ -87,6 +87,7 @@ MEASURE_SPECS: dict[str, MeasureSpec] = {
     "UniqueFraction": MeasureSpec({"column": INT}, ">= 1"),
     "UniqueOverDistinct": MeasureSpec({"column": INT}, ">= 1"),
     "Variance": MeasureSpec({"column": INT}, ">= 1000"),
+    "StandardDeviation": MeasureSpec({"column": INT}, ">=10"),
     "WindowDuration": MeasureSpec(
         {"column": INT},
         "== 1000",

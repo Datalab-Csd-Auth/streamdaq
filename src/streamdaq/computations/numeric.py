@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from streamdaq.computations.generic import sort_list_b_based_on_a
+from streamdaq.computations.generic import most_frequent_elements, sort_list_b_based_on_a
 from streamdaq.utils.validation import ensure_iterable
 
 
@@ -66,9 +66,12 @@ def range_conformance_count(
     high: int | float,
     inclusive_low: bool = False,
     inclusive_high: bool = False,
+    only_most_frequent: bool = False,
 ) -> int:
     if low > high:
         raise ValueError(f"low ({low}) must be <= high ({high})")
+    if only_most_frequent:
+        elements = most_frequent_elements(elements)
     elements = np.asarray(ensure_iterable(elements), dtype=np.float64)
     low, high = np.float64(low), np.float64(high)
 
