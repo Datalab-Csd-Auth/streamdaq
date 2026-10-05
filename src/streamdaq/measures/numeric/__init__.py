@@ -21,6 +21,7 @@ from .min_delta import MinDelta
 from .min_fractional_part_length import MinFractionalPartLength
 from .min_integer_part_length import MinIntegerPartLength
 from .percentiles import Percentiles
+from .standard_deviation import StandardDeviation
 from .sum import Sum
 from .variance import Variance
 
@@ -48,6 +49,7 @@ __all__ = [
     "MinFractionalPartLength",
     "MinIntegerPartLength",
     "Percentiles",
-    "Variance",
+    "StandardDeviation",
     "Sum",
+    "Variance",
 ]
