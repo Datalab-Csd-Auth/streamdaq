@@ -1,2 +1,2 @@
-{"window_start":0,"window_end":1000,"wc_max_drop":true,"extra_column_from_custom_sink":"extra","diff":1}
-{"window_start":1000,"window_end":2000,"wc_max_drop":false,"extra_column_from_custom_sink":"extra","diff":1}
+{"window_start":0,"window_end":1000,"wc_max_drop":true,"_streamdaq_metadata":{"task_name":"custom_sink_tumbling","task_version":1},"extra_column_from_custom_sink":"extra","diff":1}
+{"window_start":1000,"window_end":2000,"wc_max_drop":false,"_streamdaq_metadata":{"task_name":"custom_sink_tumbling","task_version":1},"extra_column_from_custom_sink":"extra","diff":1}

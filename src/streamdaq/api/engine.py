@@ -8,7 +8,7 @@ from streamdaq.tasks.base import Task
 from streamdaq.temporal.windows.registry import WINDOW_REGISTRY
 
 
-def build_task(config: TaskConfig) -> Task:
+def build_task(config: TaskConfig, **kwargs) -> Task:
     """
     Translates an API TaskConfig model into a StreamDAQ Task object.
     """
@@ -17,6 +17,7 @@ def build_task(config: TaskConfig) -> Task:
             **config.task_kwargs,
             "input": SOURCE_REGISTRY[config.input.type](config.input.params),
             "output": SINK_REGISTRY[config.output.type],
+            **kwargs,
         }
     )
 

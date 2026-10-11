@@ -1,10 +1,10 @@
 import json
-from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 API_PREFIX = "/api/v1"
 DEFAULT_GRACEFUL_KILL_TIMEOUT_SECONDS = 20
+SWAP_KILL_TIMEOUT_SECONDS = 1
 
 
 def is_API_running(host: str, port: int) -> bool:
@@ -19,8 +19,3 @@ def is_API_running(host: str, port: int) -> bool:
     except (URLError, TimeoutError, ConnectionRefusedError, OSError):
         return False
     return False
-
-
-def _handle_running_task(task_id: str, config: Any) -> None:
-    """Placeholder for dynamically applying a configuration change to a running task."""
-    pass

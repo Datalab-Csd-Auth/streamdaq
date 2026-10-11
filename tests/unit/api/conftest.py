@@ -13,12 +13,7 @@ def make_mock_session():
     """Create a MagicMock session that shares the real test session's db and store."""
     from unittest.mock import MagicMock
 
-    from streamdaq.api.models import TaskConfig
-    from streamdaq.storage.lmdb_store import NamespaceStore
-
     mock = MagicMock()
     mock.db = test_session.db
-    mock.tasks_store.side_effect = lambda: NamespaceStore(
-        test_session.db, "api_tasks", value_type=TaskConfig
-    )
+    mock.get_tasks_store.side_effect = test_session.get_tasks_store
     return mock

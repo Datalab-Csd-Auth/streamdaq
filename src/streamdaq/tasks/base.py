@@ -1,3 +1,4 @@
+import dataclasses
 import multiprocessing
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -13,7 +14,9 @@ from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.io.sources import BaseSource
 from streamdaq.measures.base import DataQualityMeasure
 from streamdaq.orchestration.utils import gracefully_kill, load_additional_files
+from streamdaq.storage.watermark_store import WatermarkStore
 from streamdaq.tasks.task_output import TaskOutput
+from streamdaq.temporal.windows.commons import WINDOW_END_COLUMN_NAME, WINDOW_START_COLUMN_NAME
 from streamdaq.windows.base import Window
 
 
@@ -39,14 +42,19 @@ class Task:
     windowby_column: str | None = None
     wait_for_late: int | None = None
     include_window_bounds: bool = True
+    include_streamdaq_metadata: bool = True
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     files_path: str | None = None
+    watermark_path: str | None = None
+    version: int = 1
 
     def __post_init__(self):
         self.instant_table: pw.Table | None = None
         self.window_table: pw.Table | None = None
         self._pw_process: multiprocessing.Process | None = None
+        self._resume_instant_watermark: int | None = None
+        self._resume_window_watermark: int | None = None
 
     def add_instant_checks(self, *instant_checks: InstantDataQualityCheck) -> Self:
         for instant_check in instant_checks:
@@ -89,9 +97,16 @@ class Task:
         self._pw_process.start()
 
     def _pw_task_worker_function(self):
-        table = self.input(**self.input_kwargs)
+        watermark_store = WatermarkStore(self.watermark_path) if self.watermark_path else None
+        if watermark_store is not None:
+            self._resume_instant_watermark = watermark_store.read_instant_watermark()
+            self._resume_window_watermark = watermark_store.read_window_watermark()
 
+        table = self.input(**self.input_kwargs)
         instant_table, window_table = self.__construct_pw_dag(table)
+        if watermark_store is not None:
+            self.__subscribe_watermark(instant_table, window_table, watermark_store)
+
         if isinstance(self.output, TaskOutput):
             # TODO HERE WE NEED TO TAKE INTO ACCOUNT THE OPTIONS THAT THE TaskOutput class supports
             # WE NEED TO COMPUTE THE failed table, valid ones, etc and also provide a better
@@ -124,12 +139,48 @@ class Task:
                 else:
                     window_kwargs = dict(self.output_kwargs)
                 self.output(window_table, **window_kwargs)
-        else:
-            ...
-            # TODO PROBABLY WE NEED TO CHECK THAT THE OUTPUT IS VALID IN THE POST INIT
-            # so that it is earlier than here
 
-        pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
+        try:
+            pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
+        finally:
+            if watermark_store is not None:
+                watermark_store.close()
+
+    def __subscribe_watermark(
+        self,
+        instant_table: pw.Table | None,
+        window_table: pw.Table | None,
+        watermark_store: WatermarkStore,
+    ) -> None:
+        if instant_table is not None and self.windowby_column:
+            self.__subscribe_instant_watermark(instant_table, watermark_store)
+
+        if window_table is not None and self.include_window_bounds:
+            self.__subscribe_window_watermark(window_table, watermark_store)
+
+    def __subscribe_instant_watermark(
+        self,
+        instant_table: pw.Table,
+        watermark_store: WatermarkStore,
+    ) -> None:
+        windowby_column = self.windowby_column
+
+        def on_instant(key, row, time, is_addition):
+            if is_addition:
+                watermark_store.advance_instant_to(int(row[windowby_column]))
+
+        pw.io.subscribe(instant_table, on_instant)
+
+    def __subscribe_window_watermark(
+        self,
+        window_table: pw.Table,
+        watermark_store: WatermarkStore,
+    ) -> None:
+        def on_window(key, row, time, is_addition):
+            if is_addition:
+                watermark_store.advance_window_to(int(row[WINDOW_END_COLUMN_NAME]))
+
+        pw.io.subscribe(window_table, on_window)
 
     def __construct_pw_dag(self, table: pw.Table) -> pw.Table:
         self.instant_table = self.__construct_instant_pw_dag(table) if self.instant_checks else None
@@ -137,11 +188,25 @@ class Task:
         return self.instant_table, self.window_table
 
     def __construct_instant_pw_dag(self, table: pw.Table) -> pw.Table:
+        # Set the instant checks watermark (if any)
+        if self._resume_instant_watermark is not None and self.windowby_column:
+            table = table.filter(table[self.windowby_column] >= self._resume_instant_watermark)
+
+        # Construct instant checks
         kwargs: dict[str, pw.ColumnExpression] = dict()
         for instant_check in self.instant_checks:
             kwargs[instant_check.name] = instant_check.get_measurement_expression()
         assessment_table = table.with_columns(**kwargs)
-        return assessment_table
+
+        # Append streamdaq metadata as JSON (if user has opted in)
+        return self.__add_streamdaq_metadata(assessment_table)
+
+    def __add_streamdaq_metadata(self, table: pw.Table) -> pw.Table:
+        if self.include_streamdaq_metadata:
+            return table.with_columns(
+                _streamdaq_metadata=pw.Json({"task_name": self.name, "task_version": self.version})
+            )
+        return table
 
     def __collect_reduce_measurement_assessment_kwargs(
         self,
@@ -154,8 +219,8 @@ class Task:
             {}
             if not self.include_window_bounds
             else {
-                "window_start": pw.this._pw_window_start,
-                "window_end": pw.this._pw_window_end,
+                WINDOW_START_COLUMN_NAME: pw.this._pw_window_start,
+                WINDOW_END_COLUMN_NAME: pw.this._pw_window_end,
             }
         )
 
@@ -196,22 +261,28 @@ class Task:
         return table.without(*columns_to_remove)
 
     def __construct_window_pw_dag(self, table: pw.Table) -> pw.Table:
-        # First, collect all kwargs for reduce, measurement, and assessment
+        # Collect all kwargs for reduce, measurement, and assessment
         reduce_kwargs, measurement_kwargs, assessment_kwargs = (
             self.__collect_reduce_measurement_assessment_kwargs()
         )
 
-        # Then, use the kwargs to construct the pathway DAG
+        # Collect the window checks watermark (if any)
+        watermark_aware_window = (
+            self.window
+            if self._resume_window_watermark is None
+            else dataclasses.replace(self.window, origin=self._resume_window_watermark)
+        )
+
+        # Construct the pathway DAG
         reduced = table.windowby(
             table[self.windowby_column],
-            # window=self.window.to_pathway_window(), TODO FIX THIS
-            window=self.window,
+            window=watermark_aware_window,
             behavior=pw.temporal.exactly_once_behavior(shift=self.wait_for_late),
         ).reduce(**reduce_kwargs)
         measurements_table = reduced.with_columns(**measurement_kwargs)
         assessments_table = measurements_table.with_columns(**assessment_kwargs)
 
-        # Finally, cleanup streamdaq-internal, intermediate columns
+        # Cleanup streamdaq-internal, intermediate columns
         assessments_table = self.__cleanup_window_pw_dag_columns(
             assessments_table,
             reduce_kwargs,
@@ -219,4 +290,4 @@ class Task:
             assessment_kwargs,
         )
 
-        return assessments_table
+        return self.__add_streamdaq_metadata(assessments_table)
