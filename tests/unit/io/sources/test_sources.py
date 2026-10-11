@@ -16,7 +16,9 @@ from streamdaq.io.sources.python_source import PythonConnectorSource
 
 class TestSourceRegistration:
     def test_all_built_in_sources_are_registered_by_type(self):
-        assert {"csv", "parquet", "python_connector", "kafka", "mqtt"} <= set(SOURCE_REGISTRY)
+        assert {"csv", "parquet", "python_connector", "kafka", "mqtt", "jsonlines"} == set(
+            SOURCE_REGISTRY
+        )
 
     def test_registry_value_builds_the_matching_source_instance(self):
         source = SOURCE_REGISTRY["mqtt"]({"connector_params": {"uri": "mqtt://b/t"}})
