@@ -77,6 +77,19 @@ class TestNamespaceStoreMapping:
         store.clear()
         assert list(store.items()) == []
 
+    def test_atomically_advance_to_max_writes_when_absent(self, env):
+        store = NamespaceStore(env, "ints", IntCodec())
+        store.atomically_advance_to_max("a", 100)
+        assert store["a"] == 100
+
+    def test_atomically_advance_to_max_moves_up_but_never_down(self, env):
+        store = NamespaceStore(env, "ints", IntCodec())
+        store.atomically_advance_to_max("a", 100)
+        store.atomically_advance_to_max("a", 50)  # lower value is ignored
+        assert store["a"] == 100
+        store.atomically_advance_to_max("a", 200)
+        assert store["a"] == 200
+
 
 class TestNamespaceStoreIsolation:
     def test_same_key_in_two_namespaces_does_not_collide(self, env):

@@ -19,11 +19,6 @@ class WatermarkStore:
         self.env = lmdb.open(path, subdir=True, map_size=self._DEFAULT_MAP_SIZE_BYTES, max_dbs=4)
         self._store: NamespaceStore[int] = NamespaceStore(self.env, self._NAMESPACE, IntCodec())
 
-    def _advance(self, key: str, value: int) -> None:
-        current = self._store.get(key)
-        if current is None or value > current:
-            self._store[key] = value
-
     def read_instant_watermark(self) -> int | None:
         """The latest processed event time for instant checks, or ``None`` if unset."""
         return self._store.get(self._INSTANT_KEY)
@@ -34,11 +29,11 @@ class WatermarkStore:
 
     def advance_instant_to(self, value: int) -> None:
         """Persist ``value`` as the instant watermark if it exceeds the current one, else no-op."""
-        self._advance(self._INSTANT_KEY, value)
+        self._store.atomically_advance_to_max(self._INSTANT_KEY, value)
 
     def advance_window_to(self, value: int) -> None:
         """Persist ``value`` as the window watermark if it exceeds the current one, else no-op."""
-        self._advance(self._WINDOW_KEY, value)
+        self._store.atomically_advance_to_max(self._WINDOW_KEY, value)
 
     def close(self) -> None:
         self.env.sync()

@@ -16,13 +16,16 @@ from streamdaq.tasks.base import Task
 
 @dataclass
 class Session:
-    tasks: dict[str, Task] = field(default_factory=dict)
+    tasks: list[Task] = field(default_factory=list)
     name: str | None = None
     files_path: str | None = None
     root_path: str = "./"
     clear: bool = False
 
     def __post_init__(self):
+        # transform the tasks to a registry structure: name -> task config
+        self.tasks: dict[str, Task] = {task.name: task for task in self.tasks}
+
         # Use lmdb as an embedded, in-process store.
         # A streamdaq session spawns a db,
         # which is used to store the state of the session and its tasks.
@@ -84,6 +87,12 @@ class Session:
     def _get_watermark_path(self, task_name: str) -> str:
         """The task's watermark store path, reused across versions of the same task."""
         return str(self.root_path / ".internals" / "watermarks" / task_name)
+
+    def delete_watermark_store(self, task_name: str) -> None:
+        """Remove the task's watermark store."""
+        watermark_path = Path(self._get_watermark_path(task_name))
+        if watermark_path.exists():
+            shutil.rmtree(watermark_path)
 
     def register_task(self, config: TaskConfig) -> Task:
         """Build, persist, and start a brand-new task."""

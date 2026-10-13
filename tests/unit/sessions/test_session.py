@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import time
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from streamdaq.api.models import (
@@ -10,6 +11,7 @@ from streamdaq.api.models import (
     TaskStatus,
 )
 from streamdaq.sessions.base import Session
+from streamdaq.storage.watermark_store import WatermarkStore
 from streamdaq.tasks.base import Task
 
 
@@ -211,3 +213,25 @@ class TestSessionBlueGreenSwap:
             assert session.get_metadata_store()["t"].version == 1
         finally:
             self._kill_spawned(spawned)
+
+
+class TestSessionWatermarkCleanup:
+    def test_delete_watermark_store_removes_the_task_directory(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session(clear=True)
+
+        watermark_path = session._get_watermark_path("t")
+        store = WatermarkStore(watermark_path)
+        store.advance_window_to(1000)
+        store.close()
+        assert Path(watermark_path).exists()
+
+        session.delete_watermark_store("t")
+
+        assert not Path(watermark_path).exists()
+
+    def test_delete_watermark_store_is_a_noop_when_absent(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session(clear=True)
+
+        session.delete_watermark_store("never_created")

@@ -40,6 +40,13 @@ class NamespaceStore(Generic[T]):
             data = txn.get(key.encode("utf-8"))
             return self.codec.decode(data) if data is not None else default
 
+    def atomically_advance_to_max(self, key: str, value: T) -> None:
+        with self.env.begin(write=True, db=self.sub_db) as txn:
+            raw = txn.get(key.encode("utf-8"))
+            current = self.codec.decode(raw) if raw is not None else None
+            if current is None or value > current:
+                txn.put(key.encode("utf-8"), self.codec.encode(value))
+
     def clear(self) -> None:
         with self.env.begin(write=True) as txn:
             txn.drop(self.sub_db, delete=False)

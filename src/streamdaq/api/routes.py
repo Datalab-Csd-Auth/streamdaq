@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from streamdaq.__about__ import __version__
-from streamdaq.api.models import APIHeartbeat, SessionStatus, TaskConfig, TaskStatus
+from streamdaq.api.models import APIHeartbeat, SessionStatus, TaskConfig
 from streamdaq.api.utils import API_PREFIX
 from streamdaq.checks.registry import INSTANT_CHECK_REGISTRY
 from streamdaq.io.sinks.registry import SINK_REGISTRY
@@ -165,42 +165,7 @@ async def delete_task(task_id: str, session: SessionDependency) -> None:
     metadata_store = session.get_metadata_store()
     if task_id in metadata_store:
         del metadata_store[task_id]
-
-
-@router.put(
-    "/tasks/{task_id}",
-    summary="Edit Task",
-    tags=["Tasks"],
-    response_description="Success message and task ID.",
-    responses={
-        404: {"description": "Task not found."},
-        422: {"description": "Task validation failed."},
-    },
-)
-async def edit_task(
-    task_id: str, task_config: TaskConfig, session: SessionDependency
-) -> dict[str, str]:
-    """Update the configuration of an existing task.
-
-    If the task is currently running, the configuration change is applied dynamically.
-    """
-    store = session.get_tasks_store()
-    if task_id not in store:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
-        )
-
-    existing_config = store[task_id]
-    if existing_config.status == TaskStatus.RUNNING:
-        try:
-            session.hotswap_task(task_config)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        task_config.status = existing_config.status
-        store[task_id] = task_config
-
-    return {"message": "Task updated.", "task_id": task_id}
+    session.delete_watermark_store(task_id)
 
 
 @router.get(
