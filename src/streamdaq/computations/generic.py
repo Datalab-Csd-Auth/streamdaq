@@ -33,7 +33,12 @@ def merge_missing_values(
 def set_conformance_count(
     elements: Iterable[int | float | str],
     allowed_values: Iterable[int | float | str],
+    only_most_frequent: bool = False,
 ) -> int:
+    if only_most_frequent:
+        # Keep every occurrence of the most frequent value(s), not just one per value
+        most_frequent = set(most_frequent_elements(elements))
+        elements = [element for element in ensure_iterable(elements) if element in most_frequent]
     elements = ensure_iterable(elements)
     allowed_values = set(ensure_iterable(allowed_values))
     return sum(element in allowed_values for element in elements)

@@ -2,7 +2,6 @@
 
 import json
 import os
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -37,7 +36,7 @@ SUITE_DIR = Path(__file__).resolve().parent
 EXPECTED_OUTPUT_DIR = SUITE_DIR / "expected_output"
 SHOULD_UPDATE_EXPECTED_OUTPUT = os.getenv("STREAMDAQ_UPDATE_EXPECTED_OUTPUT") == "1"
 
-INITIAL_FLUSH_SECONDS = 2.5
+INITIAL_FLUSH_TIMEOUT_SECONDS = 10.0
 SWAP_LANDED_TIMEOUT_SECONDS = 3.0
 OUTPUT_FILES_TIMEOUT_SECONDS = 60.0
 UPDATED_INSTANT_HIGH = 25
@@ -65,7 +64,17 @@ def _served_instant_high(base_url: str) -> int | None:
     return instant_checks[0].get("params", {}).get("high")
 
 
-class TestDynamicReconfigurationEndToEnd:
+def _line_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for line in path.read_text().splitlines() if line.strip())
+
+
+def _expected_line_count(label: str) -> int:
+    return _line_count(EXPECTED_OUTPUT_DIR / f"{label}.jsonl")
+
+
+class TestTaskHotSwappingEndToEnd:
     def test_watermark_handover_splits_output_between_configs(self, api_server: RunningApi):
         work_dir = api_server.work_dir
         input_path = work_dir / INPUT_FILENAME
@@ -77,9 +86,21 @@ class TestDynamicReconfigurationEndToEnd:
         )
         assert status == 201, f"initial bulk_create failed: {status} {body}"
 
-        # Feed batch 1 to the initial task, then let it flush and record its watermark.
+        # Feed batch 1 to the initial task and wait until it produces its output
         append_batch(input_path, FIRST_BATCH)
-        time.sleep(INITIAL_FLUSH_SECONDS)
+        initial_outputs = [work_dir / INITIAL_INSTANT_OUTPUT, work_dir / INITIAL_WINDOW_OUTPUT]
+        try:
+            wait_until(
+                lambda: all(path.exists() for path in initial_outputs),
+                INITIAL_FLUSH_TIMEOUT_SECONDS,
+                "the initial task to flush its output (and record its watermark)",
+            )
+        except TimeoutError as e:
+            missing = [path.name for path in initial_outputs if not path.exists()]
+            raise AssertionError(
+                f"{e}. Initial task never produced: {missing}.\n"
+                f"Server log:\n{api_server.server_log()}"
+            ) from e
 
         # Hot-swap the same task (new thresholds + output file).
         status, body = http_post_json(
@@ -112,19 +133,28 @@ class TestDynamicReconfigurationEndToEnd:
             "output_final_window": work_dir / FINAL_WINDOW_OUTPUT,
         }
 
+        # Wait until every file holds all its expected rows
+        def _all_outputs_complete() -> bool:
+            if SHOULD_UPDATE_EXPECTED_OUTPUT:
+                return all(path.exists() for path in expected_files.values())
+            return all(
+                _line_count(path) >= _expected_line_count(label)
+                for label, path in expected_files.items()
+            )
+
         try:
             wait_until(
-                lambda: all(path.exists() for path in expected_files.values()),
+                _all_outputs_complete,
                 OUTPUT_FILES_TIMEOUT_SECONDS,
-                "all four output files to be written",
+                "all four output files to be fully written",
             )
         except TimeoutError as e:
-            missing = [name for name, path in expected_files.items() if not path.exists()]
+            incomplete = [name for name, path in expected_files.items() if not path.exists()]
             raise AssertionError(
-                f"{e}. Missing outputs: {missing}.\nServer log:\n{api_server.server_log()}"
+                f"{e}. Missing/incomplete outputs: {incomplete}.\n"
+                f"Server log:\n{api_server.server_log()}"
             ) from e
 
-        time.sleep(2)  # small buffer for pathway to flush all rows
         for label, path in expected_files.items():
             verify_output_matches_expected(
                 EXPECTED_OUTPUT_DIR, label, path, update=SHOULD_UPDATE_EXPECTED_OUTPUT

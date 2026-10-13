@@ -131,6 +131,18 @@ class TestRangeConformanceCount:
         result = range_conformance_count([5], 5, 5, inclusive_low=True, inclusive_high=True)
         assert result == 1
 
+    def test_only_most_frequent_counts_every_occurrence_of_the_mode(self):
+        result = range_conformance_count(
+            [5, 5, 5, 1], 4, 6, inclusive_low=True, inclusive_high=True, only_most_frequent=True
+        )
+        assert result == 3
+
+    def test_only_most_frequent_excludes_non_mode_in_range(self):
+        result = range_conformance_count(
+            [5, 5, 5, 1], 0, 2, inclusive_low=True, inclusive_high=True, only_most_frequent=True
+        )
+        assert result == 0
+
 
 class TestPercentilesDict:
     def test_standard_percentiles(self):

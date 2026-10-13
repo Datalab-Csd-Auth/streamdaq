@@ -15,13 +15,19 @@ class InRangeCount(DataQualityMeasure):
     high: int | float
     inclusive_low: bool = field(default=True)
     inclusive_high: bool = field(default=False)
+    only_most_frequent: bool = field(default=False)
     _applicability: ClassVar[DataTypeApplicability] = DataTypeApplicability.ANY_COLUMN
     _dependencies: ClassVar[list[type[DataQualityMeasure]]] = [Tuple]
 
     def get_expression(self) -> pw.ColumnExpression:
         return pw.apply_with_type(
             lambda elements: range_conformance_count(
-                elements, self.low, self.high, self.inclusive_low, self.inclusive_high
+                elements,
+                self.low,
+                self.high,
+                self.inclusive_low,
+                self.inclusive_high,
+                self.only_most_frequent,
             ),
             int,
             pw.this[Tuple._get_internal_shared_column_name(self.column)],
