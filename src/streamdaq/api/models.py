@@ -1,3 +1,4 @@
+import time
 from enum import auto
 from typing import Any, Literal
 
@@ -169,6 +170,10 @@ class TaskConfig(BaseModel):
         True,
         description="Whether to include window start and end columns in window checks output",
     )
+    include_streamdaq_metadata: bool = Field(
+        True,
+        description="Whether to include streamdaq metadata (JSON) in each result row",
+    )
     wait_for_late: int | None = Field(
         None,
         description="Number of time units to wait for late data before finalizing a window "
@@ -224,6 +229,15 @@ class TaskConfig(BaseModel):
 
         if errors:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
+
+
+class TaskMetadata(BaseModel):
+    """Runtime metadata about a task, persisted alongside its ``TaskConfig``."""
+
+    version: int = Field(1, description="Monotonically increasing version of the task config.")
+    started_at: float = Field(
+        default_factory=time.time, description="System time (epoch seconds) this version started."
+    )
 
 
 class SessionStatus(BaseModel):

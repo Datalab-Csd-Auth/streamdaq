@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,10 +10,10 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_tasks_store():
     # Setup: clear tasks before test
-    test_session.tasks_store().clear()
+    test_session.get_tasks_store().clear()
     yield
     # Teardown: clear tasks after test
-    test_session.tasks_store().clear()
+    test_session.get_tasks_store().clear()
     app.dependency_overrides.clear()
 
 
@@ -61,12 +59,9 @@ def test_create_task_invalid_instant_check():
     assert "Invalid params for InRange" in response.json()["detail"]
 
 
-@patch("streamdaq.api.routes.build_task")
-def test_create_task_valid(mock_build_task):
+def test_create_task_valid():
     mock_session = make_mock_session()
     app.dependency_overrides[get_session] = lambda: mock_session
-    mock_task = MagicMock()
-    mock_build_task.return_value = mock_task
 
     io_skeleton = {
         "input": {"type": "kafka", "params": {}},
@@ -124,10 +119,7 @@ def test_create_task_valid(mock_build_task):
     )
     assert response.status_code == 201
     assert response.json()["task_ids"] == ["Window Only", "Instant Only", "Window and Instant"]
-    assert "Window Only" in test_session.tasks_store()
-    assert "Instant Only" in test_session.tasks_store()
-    assert "Window and Instant" in test_session.tasks_store()
 
-    assert mock_build_task.call_count == 3
-    assert mock_session.add_tasks.call_count == 3
-    assert mock_task._start_pw_process.call_count == 3
+    # Each new task name is dispatched to register_task (persistence + spawn live there)
+    registered_names = [call.args[0].name for call in mock_session.register_task.call_args_list]
+    assert registered_names == ["Window Only", "Instant Only", "Window and Instant"]

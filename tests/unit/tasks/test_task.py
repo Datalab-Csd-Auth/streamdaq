@@ -33,6 +33,74 @@ def _build_input() -> pw.Table:
     return pw.debug.table_from_pandas(frame)
 
 
+def _resume_input() -> pw.Table:
+    # event times span pre- and post-watermark windows
+    frame = pd.DataFrame({"time": [100, 1100, 2100, 3100], "value": [1, 2, 3, 4]})
+    return pw.debug.table_from_pandas(frame)
+
+
+class TestResumeFromWatermark:
+    """A resume watermark filters instant rows and shifts the window origin."""
+
+    def test_instant_dag_filters_rows_at_or_after_watermark(self):
+        from streamdaq.checks.instant.any_column.in_range import InRange
+
+        task = Task(
+            input=_resume_input,
+            output=lambda *a, **k: None,
+            windowby_column="time",
+        )
+        task.add_instant_checks(InRange(name="ic", column="value", low=0, high=1000))
+        task._resume_instant_watermark = 2000
+
+        instant_table = task._Task__construct_instant_pw_dag(_resume_input())
+        times = sorted(pw.debug.table_to_pandas(instant_table)["time"].tolist())
+
+        assert times == [2100, 3100]  # rows before the watermark are skipped
+
+    def test_window_dag_uses_watermark_as_origin(self):
+        from streamdaq.checks.window.base import WindowDataQualityCheck
+        from streamdaq.measures.any_column.count import Count
+
+        task = Task(
+            input=_resume_input,
+            output=lambda *a, **k: None,
+            windowby_column="time",
+            include_window_bounds=True,
+        )
+        task.add_window_checks(
+            WindowDataQualityCheck("wc", Count(column="value"), ">= 1"),
+            window=pw.temporal.tumbling(duration=1000),
+        )
+        task._resume_window_watermark = 2000
+
+        window_table = task._Task__construct_window_pw_dag(_resume_input())
+        starts = sorted(pw.debug.table_to_pandas(window_table)["window_start"].tolist())
+
+        assert starts == [2000, 3000]  # no windows before the origin watermark
+
+    def test_no_watermark_keeps_all_rows_and_windows(self):
+        from streamdaq.checks.window.base import WindowDataQualityCheck
+        from streamdaq.measures.any_column.count import Count
+
+        task = Task(
+            input=_resume_input,
+            output=lambda *a, **k: None,
+            windowby_column="time",
+            include_window_bounds=True,
+        )
+        task.add_window_checks(
+            WindowDataQualityCheck("wc", Count(column="value"), ">= 1"),
+            window=pw.temporal.tumbling(duration=1000),
+        )
+        # resume watermarks default to None (fresh start)
+
+        window_table = task._Task__construct_window_pw_dag(_resume_input())
+        starts = sorted(pw.debug.table_to_pandas(window_table)["window_start"].tolist())
+
+        assert starts == [0, 1000, 2000, 3000]  # every window is emitted
+
+
 class TestTaskGracefullyKill:
     def test_no_op_when_process_never_started(self):
         task = _task()

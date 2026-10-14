@@ -1,0 +1,4 @@
+{"time":1100,"value":10,"value_in_range":true,"_streamdaq_metadata":{"task_name":"task_hotswapping","task_version":2},"diff":1}
+{"time":2100,"value":30,"value_in_range":false,"_streamdaq_metadata":{"task_name":"task_hotswapping","task_version":2},"diff":1}
+{"time":2300,"value":40,"value_in_range":false,"_streamdaq_metadata":{"task_name":"task_hotswapping","task_version":2},"diff":1}
+{"time":3100,"value":50,"value_in_range":false,"_streamdaq_metadata":{"task_name":"task_hotswapping","task_version":2},"diff":1}

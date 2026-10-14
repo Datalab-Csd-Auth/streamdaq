@@ -133,7 +133,7 @@ class TestServe:
         session = Session()
         live_task = MagicMock()
         live_task._pw_process.is_alive.return_value = True
-        session.tasks = [live_task]
+        session.tasks = {"live": live_task}
         thread = MagicMock()
         thread.is_alive.return_value = False
         self._patch_server(monkeypatch, thread)
@@ -159,7 +159,7 @@ class TestServe:
         session = Session()
         live_task = MagicMock()
         live_task._pw_process.is_alive.return_value = True
-        session.tasks = [live_task]
+        session.tasks = {"live": live_task}
         instance = MagicMock()
         instance.start_in_thread.side_effect = RuntimeError("port already in use")
         monkeypatch.setattr(server, "_ThreadedUvicornServer", MagicMock(return_value=instance))

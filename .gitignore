@@ -218,3 +218,4 @@ Dockerfile
 
 .streamdaq_db/
 .streamdaq_monitoring/
+.internals/

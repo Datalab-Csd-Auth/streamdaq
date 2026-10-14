@@ -1,15 +1,16 @@
+import traceback
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from streamdaq.__about__ import __version__
-from streamdaq.api.engine import build_task
-from streamdaq.api.models import APIHeartbeat, SessionStatus, TaskConfig, TaskStatus
-from streamdaq.api.utils import API_PREFIX, _handle_running_task
+from streamdaq.api.models import APIHeartbeat, SessionStatus, TaskConfig
+from streamdaq.api.utils import API_PREFIX
 from streamdaq.checks.registry import INSTANT_CHECK_REGISTRY
 from streamdaq.io.sinks.registry import SINK_REGISTRY
 from streamdaq.io.sources.registry import SOURCE_REGISTRY
 from streamdaq.measures.registry import MEASURE_REGISTRY
+from streamdaq.orchestration.utils import gracefully_kill
 from streamdaq.temporal.windows.registry import WINDOW_REGISTRY
 
 if TYPE_CHECKING:
@@ -67,12 +68,9 @@ async def get_session_status(session: SessionDependency) -> SessionStatus:
     response_description="A mapping of task IDs to their current configurations.",
 )
 async def list_tasks(session: SessionDependency) -> dict[str, TaskConfig]:
-    """Retrieve all registered tasks and their current configuration states.
-
-    Synchronizes task execution statuses before returning.
-    """
+    """Retrieve all registered tasks and their current configuration."""
     session.sync_task_statuses()
-    return {k: v for k, v in session.tasks_store().items()}
+    return {name: config for name, config in session.get_tasks_store().items()}
 
 
 @router.get(
@@ -88,7 +86,7 @@ async def list_tasks(session: SessionDependency) -> dict[str, TaskConfig]:
 async def get_task(task_id: str, session: SessionDependency) -> TaskConfig:
     """Retrieve details and configuration for a specific task by its ID."""
     session.sync_task_statuses()
-    store = session.tasks_store()
+    store = session.get_tasks_store()
     if task_id not in store:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not found."
@@ -112,42 +110,29 @@ async def create_tasks(
 ) -> dict[str, Any]:
     """Bulk create, validate, and immediately start multiple data quality tasks.
     Validates configurations for completeness before starting processes."""
-    store = session.tasks_store()
+    store = session.get_tasks_store()
 
     task_ids = []
+    details = []
     for task_config in task_configs:
         task_id = task_config.name
-
-        if task_id in store:
-            _handle_running_task(task_id, task_config)
-            store[task_id] = task_config
-            task_ids.append(task_id)
-            continue
-
-        task_config.status = TaskStatus.RUNNING
-        store[task_id] = task_config
-
-        # Build the task
-        task = build_task(task_config)
-        task.files_path = session.files_path
-
-        # Add to the running session
-        session.add_tasks(task)
-
-        # Since the session is already active, we start the task's isolated process immediately
         try:
-            task._start_pw_process()
+            if task_id in store:
+                session.hotswap_task(task_config)
+                details.append(f"{task_id} was hot-swapped")
+            else:
+                session.register_task(task_config)
+                details.append(f"{task_id} was created and started")
         except Exception as e:
-            import traceback
-
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=str(e))
 
         task_ids.append(task_id)
 
     return {
-        "message": f"{len(task_ids)} tasks created and started successfully",
+        "message": f"Successfully processed {len(task_ids)} task requests",
         "task_ids": task_ids,
+        "details": details,
     }
 
 
@@ -166,58 +151,21 @@ async def delete_task(task_id: str, session: SessionDependency) -> None:
 
     If the task process is running, it will be gracefully killed.
     """
-    store = session.tasks_store()
+    store = session.get_tasks_store()
     if task_id not in store:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not found."
         )
 
-    config = store[task_id]
-
-    # Find the matching task in the session and terminate its process
-    from streamdaq.orchestration.utils import gracefully_kill
-
-    for task in session.tasks:
-        # We match by name since we don't have a task_id inside Task
-        if task.name == config.name and task._pw_process:
-            gracefully_kill(task._pw_process, timeout_seconds=5)
-            session.tasks.remove(task)
-            break
+    task = session.tasks.pop(task_id, None)
+    if task is not None and task._pw_process:
+        gracefully_kill(task._pw_process, timeout_seconds=5)
 
     del store[task_id]
-
-
-@router.put(
-    "/tasks/{task_id}",
-    summary="Edit Task",
-    tags=["Tasks"],
-    response_description="Success message and task ID.",
-    responses={
-        404: {"description": "Task not found."},
-        422: {"description": "Task validation failed."},
-    },
-)
-async def edit_task(
-    task_id: str, task_config: TaskConfig, session: SessionDependency
-) -> dict[str, str]:
-    """Update the configuration of an existing task.
-
-    If the task is currently running, the configuration change is applied dynamically.
-    """
-    store = session.tasks_store()
-    if task_id not in store:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with id '{task_id}' not found."
-        )
-
-    existing_config = store[task_id]
-    task_config.status = existing_config.status
-    store[task_id] = task_config
-
-    if existing_config.status == TaskStatus.RUNNING:
-        _handle_running_task(task_id, task_config)
-
-    return {"message": "Task updated.", "task_id": task_id}
+    metadata_store = session.get_metadata_store()
+    if task_id in metadata_store:
+        del metadata_store[task_id]
+    session.delete_watermark_store(task_id)
 
 
 @router.get(
