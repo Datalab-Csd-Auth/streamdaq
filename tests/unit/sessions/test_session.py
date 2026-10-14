@@ -3,6 +3,8 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from streamdaq.api.models import (
     InputConfig,
     InstantCheckConfig,
@@ -235,3 +237,106 @@ class TestSessionWatermarkCleanup:
         session = Session(clear=True)
 
         session.delete_watermark_store("never_created")
+
+
+class TestSessionConstruction:
+    def test_duplicate_task_names_are_rejected(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        duplicate = [
+            Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="dup"),
+            Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="dup"),
+        ]
+        with pytest.raises(ValueError, match="duplicate task names"):
+            Session(tasks=duplicate)
+
+    def test_unnamed_task_is_rejected(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        unnamed = Task(input=lambda **_: None, output=lambda *_a, **_k: None)
+        with pytest.raises(ValueError, match="needs a name"):
+            Session(tasks=[unnamed])
+
+    def test_unnamed_and_duplicate_tasks_report_the_missing_name(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        tasks = [
+            Task(input=lambda **_: None, output=lambda *_a, **_k: None, name=name)
+            for name in (None, None, "a", "a")
+        ]
+        with pytest.raises(ValueError, match="needs a name"):
+            Session(tasks=tasks)
+
+    def test_distinct_task_names_are_indexed_by_name(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        a = Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="a")
+        b = Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="b")
+
+        session = Session(tasks=[a, b])
+
+        assert session.tasks == {"a": a, "b": b}
+
+
+class TestSessionClearWipesWatermarks:
+    def test_clear_removes_existing_watermark_stores(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session()
+        watermark_path = session._get_watermark_path("t")
+        store = WatermarkStore(watermark_path)
+        store.advance_window_to(1000)
+        store.close()
+        session.db.close()
+        assert Path(watermark_path).exists()
+
+        cleared = Session(clear=True)
+
+        assert not Path(watermark_path).exists()
+        assert not cleared._get_watermarks_root().exists()
+
+
+class TestSessionAddTasks:
+    def test_adds_named_tasks(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        a = Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="a")
+
+        session = Session().add_tasks(a)
+
+        assert session.tasks == {"a": a}
+
+    def test_rejects_a_name_already_in_the_session(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        original = Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="a")
+        session = Session(tasks=[original])
+
+        with pytest.raises(ValueError, match="duplicate task names"):
+            session.add_tasks(Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="a"))
+
+        assert session.tasks == {"a": original}
+
+    def test_rejects_duplicates_within_the_added_tasks(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session()
+        tasks = [
+            Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="b") for _ in range(2)
+        ]
+
+        with pytest.raises(ValueError, match="duplicate task names"):
+            session.add_tasks(*tasks)
+
+    def test_rejects_an_unnamed_task(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session()
+        unnamed = Task(input=lambda **_: None, output=lambda *_a, **_k: None)
+
+        with pytest.raises(ValueError, match="needs a name"):
+            session.add_tasks(unnamed)
+
+        assert session.tasks == {}
+
+    def test_tasks_before_a_rejected_one_stay_added(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+        session = Session()
+        valid = Task(input=lambda **_: None, output=lambda *_a, **_k: None, name="c")
+        unnamed = Task(input=lambda **_: None, output=lambda *_a, **_k: None)
+
+        with pytest.raises(ValueError, match="needs a name"):
+            session.add_tasks(valid, unnamed)
+
+        assert session.tasks == {"c": valid}

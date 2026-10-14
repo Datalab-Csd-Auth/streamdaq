@@ -23,22 +23,43 @@ class Session:
     clear: bool = False
 
     def __post_init__(self):
-        # transform the tasks to a registry structure: name -> task config
-        self.tasks: dict[str, Task] = {task.name: task for task in self.tasks}
-
-        # Use lmdb as an embedded, in-process store.
-        # A streamdaq session spawns a db,
-        # which is used to store the state of the session and its tasks.
+        tasks, self.tasks = self.tasks, {}
+        self.add_tasks(*tasks)
         self.root_path = Path(self.root_path).resolve()
-        db_path = str(self.root_path / ".streamdaq_db")
-        if self.clear and os.path.exists(db_path):
-            shutil.rmtree(db_path)
+        self._handle_clear_flag()
+        self._set_up_db()
+
+    def _handle_clear_flag(self) -> None:
+        if not self.clear:
+            return
+
+        paths_to_clear: list[Path] = [self._get_db_path(), self._get_watermarks_root()]
+        for path_to_clear in paths_to_clear:
+            if path_to_clear.exists():
+                shutil.rmtree(path_to_clear)
+
+    def _set_up_db(self) -> None:
+        db_path = str(self._get_db_path())
         os.makedirs(db_path, exist_ok=True)
-        # ``max_dbs`` must cover every NamespaceStore sub-database (configs, metadata, ...).
         self.db = lmdb.open(db_path, max_dbs=16)
 
     def add_tasks(self, *tasks: Task) -> Self:
+        """Add tasks to the session, one by one. Each needs a name, unique within the session.
+
+        Tasks are identified by their names, e.g. in the session's stores and watermark paths.
+        If a task is rejected, the tasks before it in the same call have already been added.
+        """
         for task in tasks:
+            if task.name is None:
+                raise ValueError(
+                    "Every task in a session needs a name."
+                    "Please set the 'name' attribute of the task before adding it to the session. "
+                )
+            if task.name in self.tasks:
+                raise ValueError(
+                    f"Cannot have duplicate task names in a session: a task named '{task.name}' "
+                    "is already in it. Please use unique task names."
+                )
             self.tasks[task.name] = task
         return self
 
@@ -84,9 +105,17 @@ class Session:
         """The persistent store of server-owned task metadata (version, start time)."""
         return NamespaceStore(self.db, "api_task_meta", PydanticCodec(TaskMetadata))
 
+    def _get_watermarks_root(self) -> Path:
+        """The directory under which every task's watermark store lives."""
+        return self.root_path / ".internals" / "watermarks"
+
+    def _get_db_path(self) -> Path:
+        """The directory under which the orchestrator's embedded store lives."""
+        return self.root_path / ".streamdaq_db"
+
     def _get_watermark_path(self, task_name: str) -> str:
         """The task's watermark store path, reused across versions of the same task."""
-        return str(self.root_path / ".internals" / "watermarks" / task_name)
+        return str(self._get_watermarks_root() / task_name)
 
     def delete_watermark_store(self, task_name: str) -> None:
         """Remove the task's watermark store."""
