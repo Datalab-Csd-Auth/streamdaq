@@ -163,6 +163,12 @@ class TaskStatus(LowercaseStrEnum, metaclass=Py312EnumMeta):
     ERROR = auto()
 
 
+class InactivityDetectionParams(BaseModel):
+    allowed_inactivity_period_sec: int | float
+    refresh_rate_sec: int | float = 1
+    instance: str | None = None
+
+
 class TaskConfig(BaseModel):
     name: str = Field(..., description="Name of the task.")
     windowby_column: str | None = Field(None, description="Column to window by.")
@@ -184,6 +190,7 @@ class TaskConfig(BaseModel):
     instant_checks: list[InstantCheckConfig] = Field(default_factory=list)
     window_checks_config: WindowChecksConfig | None = None
     status: TaskStatus = Field(default=TaskStatus.RUNNING, description="Current lifecycle status.")
+    inactivity_detection_params: InactivityDetectionParams | None = None
 
     @property
     def _task_kwargs_exclude_list(self) -> list[str]:

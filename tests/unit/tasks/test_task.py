@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import dill
 import pandas as pd
 import pathway as pw
+import pytest
 
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.registry import MEASURE_REGISTRY
@@ -150,3 +151,66 @@ class TestSpawnedWorker:
         lines = [line for line in window_output.read_text().splitlines() if line.strip()]
         assert len(lines) == 1
         assert json.loads(lines[0])[_CHECK_NAME] is True
+
+
+class TestOutputKwargsWithSuffix:
+    @pytest.mark.parametrize(
+        "output_kwargs, suffix, expected",
+        [
+            ({"filename": "out.jsonl"}, "window", {"filename": "out_window.jsonl"}),
+            ({"filename": "d/out.jsonl"}, "inactivity", {"filename": "d/out_inactivity.jsonl"}),
+            ({"topic_name": "results"}, "window", {"topic_name": "results_window"}),
+            ({"topic": "results"}, "inactivity", {"topic": "results_inactivity"}),
+            ({"table_name": "results"}, "window", {"table_name": "results_window"}),
+        ],
+    )
+    def test_suffixes_the_destination_key(self, output_kwargs, suffix, expected):
+        task = Task(input=lambda: None, output=lambda *a, **k: None, output_kwargs=output_kwargs)
+        assert task._output_kwargs_with_suffix(suffix) == expected
+
+    def test_preserves_other_kwargs(self):
+        task = Task(
+            input=lambda: None,
+            output=lambda *a, **k: None,
+            output_kwargs={"filename": "out.jsonl", "extra": 1},
+        )
+        assert task._output_kwargs_with_suffix("window") == {
+            "filename": "out_window.jsonl",
+            "extra": 1,
+        }
+
+    def test_no_known_destination_key_returns_a_copy(self):
+        output_kwargs = {"unrelated": "value"}
+        task = Task(input=lambda: None, output=lambda *a, **k: None, output_kwargs=output_kwargs)
+        result = task._output_kwargs_with_suffix("window")
+        assert result == output_kwargs
+        assert result is not output_kwargs  # a copy, not the same dict
+
+
+class TestInactivityDetectionSetup:
+    def test_returns_none_when_no_params(self):
+        task = Task(input=lambda: None, output=lambda *a, **k: None)
+        assert task._Task__set_up_inactivity_detection(MagicMock()) is None
+
+    def test_delegates_to_pathway(self):
+        task = Task(
+            input=lambda: None,
+            output=lambda *a, **k: None,
+            inactivity_detection_params={
+                "allowed_inactivity_period_sec": 5,
+                "refresh_rate_sec": 2,
+                "instance": None,
+            },
+        )
+
+        mock_table = MagicMock(spec=pw.Table)
+        result = task._Task__set_up_inactivity_detection(mock_table)
+
+        mock_table.assert_append_only.assert_called_once_with()
+        append_only_table = mock_table.assert_append_only.return_value
+        append_only_table.inactivity_detection.assert_called_once()
+        passed = append_only_table.inactivity_detection.call_args.kwargs
+        assert isinstance(passed["allowed_inactivity_period"], pw.Duration)
+        assert passed["allowed_inactivity_period"] == pw.Duration(seconds=5)
+        assert passed["refresh_rate"] == pw.Duration(seconds=2)
+        assert result is append_only_table.inactivity_detection.return_value

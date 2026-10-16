@@ -2,6 +2,7 @@ import pytest
 from fastapi import HTTPException
 
 from streamdaq.api.models import (
+    InactivityDetectionParams,
     InputConfig,
     InstantCheckConfig,
     MeasureConfig,
@@ -220,3 +221,41 @@ class TestTaskConfigStartabilityValidation:
             "A windowby column is provided but no window checks: "
             "Unnecessary windowby or forgotten window check(s)."
         ) in exc_info.value.detail
+
+
+class TestInactivityDetectionParams:
+    def test_seconds_fields_stay_plain_numbers(self):
+        params = InactivityDetectionParams(allowed_inactivity_period_sec=5, refresh_rate_sec=2)
+        assert params.allowed_inactivity_period_sec == 5
+        assert params.refresh_rate_sec == 2
+
+    def test_model_dump_is_expected_fields(self):
+        params = InactivityDetectionParams(allowed_inactivity_period_sec=5)
+        assert params.model_dump() == {
+            "allowed_inactivity_period_sec": 5,
+            "refresh_rate_sec": 1,
+            "instance": None,
+        }
+
+    def test_refresh_rate_defaults_to_one(self):
+        assert InactivityDetectionParams(allowed_inactivity_period_sec=5).refresh_rate_sec == 1
+
+    def test_instance_defaults_to_none(self):
+        assert InactivityDetectionParams(allowed_inactivity_period_sec=5).instance is None
+
+
+class TestTaskConfigInactivityDetection:
+    def test_accepts_inactivity_params(self):
+        config = TaskConfig(
+            name="t",
+            input=InputConfig(type="csv", params={"path": "/tmp/x.csv"}),
+            output=OutputConfig(type="jsonlines", params={"filename": "o.jsonl"}),
+            instant_checks=[
+                InstantCheckConfig(
+                    name="r", check_class="InRange", params={"column": "a", "low": 0, "high": 1}
+                )
+            ],
+            inactivity_detection_params={"allowed_inactivity_period_sec": 5},
+        )
+        assert isinstance(config.inactivity_detection_params, InactivityDetectionParams)
+        assert config.inactivity_detection_params.allowed_inactivity_period_sec == 5
