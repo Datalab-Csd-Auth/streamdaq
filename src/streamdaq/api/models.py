@@ -169,6 +169,18 @@ class TaskStatus(LowercaseStrEnum, metaclass=Py312EnumMeta):
     ERROR = auto()
 
 
+class InactivityDetectionParams(BaseModel):
+    allowed_inactivity_period_sec: int | float = Field(
+        ..., gt=0, description="Longest silence (in seconds) before the stream counts as inactive."
+    )
+    refresh_rate_sec: int | float = Field(
+        1, gt=0, description="How often (in seconds) to check the stream for inactivity."
+    )
+    groupby_column: str | None = Field(
+        None, description="Column to detect inactivity per group of."
+    )
+
+
 class TaskConfig(BaseModel):
     name: str = Field(..., description="Name of the task.")
     include_streamdaq_metadata: bool = Field(
@@ -185,6 +197,7 @@ class TaskConfig(BaseModel):
     instant_checks: list[InstantCheckConfig] = Field(default_factory=list)
     window_checks_config: WindowChecksConfig | None = None
     status: TaskStatus = Field(default=TaskStatus.RUNNING, description="Current lifecycle status.")
+    inactivity_detection_params: InactivityDetectionParams | None = None
 
     @property
     def _task_kwargs_exclude_list(self) -> list[str]:
@@ -200,6 +213,11 @@ class TaskConfig(BaseModel):
                 windowby_column=self.window_checks_config.windowby_column,
                 groupby_column=self.window_checks_config.groupby_column,
                 include_window_bounds=self.window_checks_config.include_window_bounds,
+            )
+        if self.inactivity_detection_params:
+            # Tasks expect plain dicts, whichever path builds them (register, hot-swap, restore)
+            kwargs_mutations["inactivity_detection_params"] = (
+                self.inactivity_detection_params.model_dump()
             )
         return kwargs_mutations
 
