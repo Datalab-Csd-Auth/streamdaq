@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import dill
 import pandas as pd
 import pathway as pw
+import pytest
 
 from streamdaq.checks.window.base import WindowDataQualityCheck
 from streamdaq.measures.registry import MEASURE_REGISTRY
@@ -37,6 +38,79 @@ def _resume_input() -> pw.Table:
     # event times span pre- and post-watermark windows
     frame = pd.DataFrame({"time": [100, 1100, 2100, 3100], "value": [1, 2, 3, 4]})
     return pw.debug.table_from_pandas(frame)
+
+
+def _grouped_input() -> pw.Table:
+    # two groups share the first window; only group "a" reaches the second window
+    frame = pd.DataFrame(
+        {"time": [100, 200, 1100], "value": [1, 2, 3], "a_grouping_col": ["a", "b", "a"]}
+    )
+    return pw.debug.table_from_pandas(frame)
+
+
+class TestWindowGroupBy:
+    """``groupby_column`` keys windows per group via pathway's windowby ``instance``."""
+
+    @pytest.mark.parametrize(
+        "groupby_column, expected_starts",
+        [("a_grouping_col", [0, 0, 1000]), (None, [0, 1000])],
+        ids=["grouped", "ungrouped"],
+    )
+    def test_windows_are_emitted_per_group(self, groupby_column, expected_starts):
+        from streamdaq.measures.any_column.count import Count
+
+        task = Task(
+            input=_grouped_input,
+            output=lambda *a, **k: None,
+            windowby_column="time",
+            groupby_column=groupby_column,
+            include_window_bounds=True,
+        )
+        task.add_window_checks(
+            WindowDataQualityCheck("wc", Count(column="value"), ">= 1"),
+            window=pw.temporal.tumbling(duration=1000),
+        )
+
+        window_table = task._Task__construct_window_pw_dag(_grouped_input())
+        starts = sorted(pw.debug.table_to_pandas(window_table)["window_start"].tolist())
+
+        assert starts == expected_starts
+
+    def test_each_window_result_includes_its_group(self):
+        from streamdaq.measures.any_column.count import Count
+
+        task = Task(
+            input=_grouped_input,
+            output=lambda *a, **k: None,
+            windowby_column="time",
+            groupby_column="a_grouping_col",
+        )
+        task.add_window_checks(
+            WindowDataQualityCheck("wc", Count(column="value")),
+            window=pw.temporal.tumbling(duration=1000),
+        )
+
+        window_table = task._Task__construct_window_pw_dag(_grouped_input())
+        rows = pw.debug.table_to_pandas(window_table)
+
+        assert sorted(zip(rows["window_start"], rows["a_grouping_col"], rows["wc"])) == [
+            (0, "a", 1),
+            (0, "b", 1),
+            (1000, "a", 1),
+        ]
+
+    def test_ungrouped_window_results_have_no_group_column(self):
+        from streamdaq.measures.any_column.count import Count
+
+        task = Task(input=_grouped_input, output=lambda *a, **k: None, windowby_column="time")
+        task.add_window_checks(
+            WindowDataQualityCheck("wc", Count(column="value")),
+            window=pw.temporal.tumbling(duration=1000),
+        )
+
+        window_table = task._Task__construct_window_pw_dag(_grouped_input())
+
+        assert "a_grouping_col" not in window_table.column_names()
 
 
 class TestResumeFromWatermark:

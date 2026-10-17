@@ -40,6 +40,7 @@ class Task:
     window_checks: list[WindowDataQualityCheck] = field(default_factory=lambda: [])
     window: Window | None = None
     windowby_column: str | None = None
+    groupby_column: str | None = None
     wait_for_late: int | None = None
     include_window_bounds: bool = True
     include_streamdaq_metadata: bool = True
@@ -224,12 +225,13 @@ class Task:
             }
         )
 
+        # The group each window belongs to, so that grouped results can be told apart
+        if self.groupby_column:
+            reduce_kwargs[self.groupby_column] = pw.this._pw_instance
+
         for window_check in self.window_checks:
             # collect reduce kwargs
-            reduce_kwargs = {
-                **reduce_kwargs,
-                **window_check.get_reduce_kwargs(),
-            }
+            reduce_kwargs.update(window_check.get_reduce_kwargs())
 
             # collect measurement kwargs
             measurement_expression = window_check.get_measurement_expression()
@@ -278,6 +280,7 @@ class Task:
             table[self.windowby_column],
             window=watermark_aware_window,
             behavior=pw.temporal.exactly_once_behavior(shift=self.wait_for_late),
+            instance=table[self.groupby_column] if self.groupby_column else None,
         ).reduce(**reduce_kwargs)
         measurements_table = reduced.with_columns(**measurement_kwargs)
         assessments_table = measurements_table.with_columns(**assessment_kwargs)

@@ -34,7 +34,6 @@ def _task_payload(
 ) -> dict[str, Any]:
     return {
         "name": TASK_NAME,
-        "windowby_column": TIME,
         "input": _input_config(),
         "output": {"type": "jsonlines", "params": {"filename": output_filename}},
         "instant_checks": [
@@ -45,6 +44,7 @@ def _task_payload(
             }
         ],
         "window_checks_config": {
+            "windowby_column": TIME,
             "window": {"type": "tumbling", "params": {"duration": 1000}},
             "checks": [
                 {

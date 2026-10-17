@@ -72,11 +72,11 @@ def task_payload(
 ) -> dict:
     return {
         "name": name,
-        "windowby_column": TIME,
         "input": input_config_payload(),
         "output": {"type": "jsonlines", "params": {"filename": output_filename}},
         "instant_checks": instant_checks_payload(),
         "window_checks_config": {
+            "windowby_column": TIME,
             "window": {"type": window_type, "params": window_params},
             "checks": window_checks_payload(),
         },

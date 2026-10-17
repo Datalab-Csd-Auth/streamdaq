@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from streamdaq.api.models import (
     InputConfig,
@@ -131,8 +132,24 @@ def _window_check() -> WindowCheckConfig:
 
 def _window_checks_config(*checks) -> WindowChecksConfig:
     return WindowChecksConfig(
-        window=WindowConfig(type="tumbling", params={"duration": 5}), checks=list(checks)
+        window=WindowConfig(type="tumbling", params={"duration": 5}),
+        checks=list(checks),
+        windowby_column="ts",
     )
+
+
+class TestWindowChecksConfig:
+    def test_missing_windowby_column_is_rejected(self):
+        with pytest.raises(ValidationError, match="windowby_column"):
+            WindowChecksConfig(
+                window=WindowConfig(type="tumbling", params={"duration": 5}),
+                checks=[_window_check()],
+            )
+
+    def test_optional_fields_default(self):
+        config = _window_checks_config(_window_check())
+        assert config.groupby_column is None
+        assert config.include_window_bounds is True
 
 
 def _instant_check() -> InstantCheckConfig:
@@ -144,15 +161,14 @@ def _instant_check() -> InstantCheckConfig:
 class TestTaskConfigStartabilityValidation:
     """``TaskConfig`` validates startability at construction with rich 422 messages.
 
-    Valid shapes: instant-only (no windowby, no window checks), window-only (windowby + window
-    checks), or both. A windowby column and window checks are coupled: neither is allowed
-    without the other.
+    Valid shapes: instant-only (no window checks config), window-only (window checks config), or
+    both. The windowby column lives inside ``window_checks_config``, so the coupling between
+    windowby and window checks is structural and needs no cross-field runtime validation.
     """
 
     def _config_kwargs(self, **overrides) -> dict:
         base = dict(
             name="t",
-            windowby_column="ts",
             input=InputConfig(type="csv", params={"path": "/tmp/x.csv"}),
             output=OutputConfig(type="jsonlines", params={"filename": "o.jsonl"}),
             instant_checks=[_instant_check()],
@@ -166,7 +182,7 @@ class TestTaskConfigStartabilityValidation:
         assert config.name == "t"
 
     def test_instant_only_task_is_accepted(self):
-        config = TaskConfig(**self._config_kwargs(windowby_column=None, window_checks_config=None))
+        config = TaskConfig(**self._config_kwargs(window_checks_config=None))
         assert config.instant_checks and config.window_checks_config is None
 
     def test_window_only_task_is_accepted(self):
@@ -199,24 +215,19 @@ class TestTaskConfigStartabilityValidation:
             TaskConfig(
                 **self._config_kwargs(
                     instant_checks=[],
-                    windowby_column=None,
                     window_checks_config=None,
                 )
             )
         assert exc_info.value.status_code == 422
         assert "At least one instant check or window check is required." in exc_info.value.detail
 
-    def test_window_checks_without_windowby_is_rejected(self):
+    def test_window_config_with_empty_checks_counts_as_no_checks(self):
         with pytest.raises(HTTPException) as exc_info:
-            TaskConfig(**self._config_kwargs(windowby_column=None))
+            TaskConfig(
+                **self._config_kwargs(
+                    instant_checks=[],
+                    window_checks_config=_window_checks_config(),
+                )
+            )
         assert exc_info.value.status_code == 422
-        assert "Window checks require a windowby column." in exc_info.value.detail
-
-    def test_windowby_without_window_checks_is_rejected(self):
-        with pytest.raises(HTTPException) as exc_info:
-            TaskConfig(**self._config_kwargs(window_checks_config=None))
-        assert exc_info.value.status_code == 422
-        assert (
-            "A windowby column is provided but no window checks: "
-            "Unnecessary windowby or forgotten window check(s)."
-        ) in exc_info.value.detail
+        assert "At least one instant check or window check is required." in exc_info.value.detail

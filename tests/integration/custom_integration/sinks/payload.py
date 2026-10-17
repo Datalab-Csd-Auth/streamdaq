@@ -13,7 +13,6 @@ def build_request_payload(output_filename: str) -> list[dict]:
     return [
         {
             "name": "custom_sink_tumbling",
-            "windowby_column": TIME,
             "input": {
                 "type": "python_connector",
                 "params": {
@@ -25,6 +24,7 @@ def build_request_payload(output_filename: str) -> list[dict]:
             },
             "output": {"type": SINK_TYPE, "params": {"filename": output_filename}},
             "window_checks_config": {
+                "windowby_column": TIME,
                 "window": {"type": "tumbling", "params": {"duration": 1000}},
                 "checks": [
                     {

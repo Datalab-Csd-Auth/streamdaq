@@ -1,7 +1,6 @@
 [
   {
     "name": "mqtt_reader_task",
-    "windowby_column": "time",
     "input": {
       "type": "mqtt",
       "params": {
@@ -35,6 +34,7 @@
       }
     ],
     "window_checks_config": {
+      "windowby_column": "time",
       "window": {
         "type": "sliding",
         "params": {
@@ -68,7 +68,6 @@
   },
   {
     "name": "mqtt_reader_task_2",
-    "windowby_column": "time",
     "input": {
       "type": "mqtt",
       "params": {
@@ -102,6 +101,7 @@
       }
     ],
     "window_checks_config": {
+      "windowby_column": "time",
       "window": {
         "type": "sliding",
         "params": {

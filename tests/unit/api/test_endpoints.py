@@ -68,8 +68,8 @@ def test_create_task_valid():
         "output": {"type": "jsonlines", "params": {}},
     }
     window_checks = {
-        "windowby_column": "age",
         "window_checks_config": {
+            "windowby_column": "age",
             "window": {"type": "sliding", "params": {}},
             "checks": [
                 {

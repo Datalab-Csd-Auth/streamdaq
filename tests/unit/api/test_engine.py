@@ -6,6 +6,8 @@ registries and real config objects; the CSV source is not invoked, so nothing
 touches the network.
 """
 
+import pytest
+
 from streamdaq.api.engine import build_task
 from streamdaq.api.models import (
     InputConfig,
@@ -23,10 +25,18 @@ from streamdaq.measures.numeric.mean import Mean
 
 
 def _full_config_kwargs(**overrides):
-    """Return the kwargs for a complete, startable ``TaskConfig`` (overridable per test)."""
+    """Return the kwargs for a complete, startable ``TaskConfig`` (overridable per test).
+
+    ``include_window_bounds`` and ``groupby_column`` overrides are applied to the nested
+    ``WindowChecksConfig``, where those settings live.
+    """
+    window_overrides = {
+        key: overrides.pop(key)
+        for key in ("include_window_bounds", "groupby_column")
+        if key in overrides
+    }
     kwargs = dict(
         name="my_task",
-        windowby_column="ts",
         input=InputConfig(type="csv", params={"path": "/tmp/data.csv"}),
         output=OutputConfig(type="jsonlines", params={"filename": "out.jsonl"}),
         instant_checks=[
@@ -45,6 +55,8 @@ def _full_config_kwargs(**overrides):
                     must_be="[0, 100]",
                 )
             ],
+            windowby_column="ts",
+            **window_overrides,
         ),
     )
     kwargs.update(overrides)
@@ -103,10 +115,11 @@ class TestBuildTaskOptionalSections:
 
     def test_no_window_checks_when_config_absent(self):
         # An instant-only task: instant checks present, no windowby column, no window config
-        config = TaskConfig(**_full_config_kwargs(windowby_column=None, window_checks_config=None))
+        config = TaskConfig(**_full_config_kwargs(window_checks_config=None))
         task = build_task(config)
         assert task.window_checks == []
         assert task.window is None
+        assert task.windowby_column is None
 
 
 class TestBuildTaskWindowBounds:
@@ -119,6 +132,18 @@ class TestBuildTaskWindowBounds:
         config = TaskConfig(**_full_config_kwargs(include_window_bounds=False))
         task = build_task(config)
         assert task.include_window_bounds is False
+
+
+class TestBuildTaskGroupBy:
+    @pytest.mark.parametrize(
+        "overrides, expected",
+        [(dict(groupby_column="user"), "user"), (dict(), None)],
+        ids=["set", "omitted"],
+    )
+    def test_groupby_column_is_passed_to_task(self, overrides, expected):
+        config = TaskConfig(**_full_config_kwargs(**overrides))
+        task = build_task(config)
+        assert task.groupby_column == expected
 
 
 class TestBuildTaskWaitForLate:
