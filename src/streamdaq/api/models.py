@@ -153,6 +153,12 @@ class WindowConfig(BaseModel):
 class WindowChecksConfig(BaseModel):
     window: WindowConfig
     checks: list[WindowCheckConfig]
+    windowby_column: str
+    groupby_column: str | None = Field(None, description="Column to key (group by) the stream on")
+    include_window_bounds: bool = Field(
+        True,
+        description="Whether to include window start and end columns in window checks output",
+    )
 
 
 class TaskStatus(LowercaseStrEnum, metaclass=Py312EnumMeta):
@@ -165,11 +171,6 @@ class TaskStatus(LowercaseStrEnum, metaclass=Py312EnumMeta):
 
 class TaskConfig(BaseModel):
     name: str = Field(..., description="Name of the task.")
-    windowby_column: str | None = Field(None, description="Column to window by.")
-    include_window_bounds: bool = Field(
-        True,
-        description="Whether to include window start and end columns in window checks output",
-    )
     include_streamdaq_metadata: bool = Field(
         True,
         description="Whether to include streamdaq metadata (JSON) in each result row",
@@ -193,9 +194,14 @@ class TaskConfig(BaseModel):
     @property
     def _task_kwargs_mutations(self) -> dict[str, Any]:
         # Add a field here if it needs to be mutated before constructing a Task's kwargs
-        return {
-            "output_kwargs": self.output.params,
-        }
+        kwargs_mutations: dict[str, Any] = {"output_kwargs": self.output.params}
+        if self.window_checks_config:
+            kwargs_mutations.update(
+                windowby_column=self.window_checks_config.windowby_column,
+                groupby_column=self.window_checks_config.groupby_column,
+                include_window_bounds=self.window_checks_config.include_window_bounds,
+            )
+        return kwargs_mutations
 
     @property
     def task_kwargs(self) -> dict[str, Any]:
@@ -215,17 +221,9 @@ class TaskConfig(BaseModel):
 
         has_instant_checks = bool(self.instant_checks)
         has_window_checks = bool(self.window_checks_config and self.window_checks_config.checks)
-        has_windowby = bool(self.windowby_column)
 
         if not has_instant_checks and not has_window_checks:
             errors.append("At least one instant check or window check is required.")
-        if has_window_checks and not has_windowby:
-            errors.append("Window checks require a windowby column.")
-        if has_windowby and not has_window_checks:
-            errors.append(
-                "A windowby column is provided but no window checks: "
-                "Unnecessary windowby or forgotten window check(s)."
-            )
 
         if errors:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)

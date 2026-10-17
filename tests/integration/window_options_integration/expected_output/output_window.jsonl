@@ -1,0 +1,7 @@
+{"window_start":0,"window_end":1000,"instance":"a","value_count":1,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":0,"window_end":1000,"instance":"b","value_count":2,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":1000,"window_end":2000,"instance":"a","value_count":2,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":1000,"window_end":2000,"instance":"b","value_count":1,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":2000,"window_end":3000,"instance":"a","value_count":1,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":2000,"window_end":3000,"instance":"b","value_count":3,"enough_readings":true,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}
+{"window_start":3000,"window_end":4000,"instance":"a","value_count":1,"enough_readings":false,"_streamdaq_metadata":{"task_name":"window_options","task_version":1},"diff":1}

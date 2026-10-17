@@ -9,10 +9,10 @@ def build_native_request_payload(output_filename: str) -> list[dict]:
     return [
         {
             "name": "custom_source_tumbling",
-            "windowby_column": "time",
             "input": {"type": SOURCE_TYPE, "params": {"connector_params": {}}},
             "output": {"type": "jsonlines", "params": {"filename": output_filename}},
             "window_checks_config": {
+                "windowby_column": "time",
                 "window": {"type": "tumbling", "params": {"duration": 1000}},
                 "checks": [
                     {
