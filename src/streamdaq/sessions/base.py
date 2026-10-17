@@ -127,11 +127,17 @@ class Session:
         """Build, persist, and start a brand-new task."""
         config.status = TaskStatus.RUNNING
         version = 1
+        inactivity_detection_params = (
+            config.inactivity_detection_params.model_dump()
+            if config.inactivity_detection_params
+            else None
+        )
         task = build_task(
             config,
             files_path=self.files_path,
             watermark_path=self._get_watermark_path(config.name),
             version=version,
+            inactivity_detection_params=inactivity_detection_params,
         )
         task._start_pw_process()
 
@@ -147,6 +153,11 @@ class Session:
         metadata_store = self.get_metadata_store()
         previous_version = metadata_store[name].version if name in metadata_store else 0
         version = previous_version + 1
+        inactivity_detection_params = (
+            config.inactivity_detection_params.model_dump()
+            if config.inactivity_detection_params
+            else None
+        )
 
         config.status = TaskStatus.RUNNING
         new_task = build_task(
@@ -154,6 +165,7 @@ class Session:
             files_path=self.files_path,
             watermark_path=self._get_watermark_path(name),
             version=version,
+            inactivity_detection_params=inactivity_detection_params,
         )
         new_task._start_pw_process()
 

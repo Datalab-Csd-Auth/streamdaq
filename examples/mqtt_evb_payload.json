@@ -17,6 +17,9 @@
       "filename": "output.jsonl"
     }
   },
+  "inactivity_detection_params": {
+    "allowed_inactivity_period_sec": 5
+  },
   "instant_checks": [
     {
       "name": "valid_time",
