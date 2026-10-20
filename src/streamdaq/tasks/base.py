@@ -46,6 +46,7 @@ class Task:
     include_streamdaq_metadata: bool = True
     input_kwargs: dict[str, Any] = field(default_factory=lambda: {})
     output_kwargs: dict[str, Any] = field(default_factory=lambda: {})
+    inactivity_detection_params: dict[str, Any] | None = None
     files_path: str | None = None
     watermark_path: str | None = None
     version: int = 1
@@ -103,7 +104,9 @@ class Task:
             self._resume_instant_watermark = watermark_store.read_instant_watermark()
             self._resume_window_watermark = watermark_store.read_window_watermark()
 
-        table = self.input(**self.input_kwargs)
+        table: pw.Table = self.input(**self.input_kwargs)
+        inactivity_table = self.__set_up_inactivity_detection(table)
+
         instant_table, window_table = self.__construct_pw_dag(table)
         if watermark_store is not None:
             self.__subscribe_watermark(instant_table, window_table, watermark_store)
@@ -117,35 +120,51 @@ class Task:
         elif isinstance(self.output, Callable):
             if instant_table:
                 self.output(instant_table, **self.output_kwargs)
+            if inactivity_table:
+                self.output(inactivity_table, **self._output_kwargs_with_suffix("inactivity"))
             if window_table:
-                if "filename" in self.output_kwargs:
-                    p = Path(self.output_kwargs["filename"])
-                    window_filename = str(p.parent / f"{p.stem}_window{p.suffix}")
-                    window_kwargs = {**self.output_kwargs, "filename": window_filename}
-                elif "topic_name" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "topic_name": f"{self.output_kwargs['topic_name']}_window",
-                    }
-                elif "topic" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "topic": f"{self.output_kwargs['topic']}_window",
-                    }
-                elif "table_name" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "table_name": f"{self.output_kwargs['table_name']}_window",
-                    }
-                else:
-                    window_kwargs = dict(self.output_kwargs)
-                self.output(window_table, **window_kwargs)
+                self.output(window_table, **self._output_kwargs_with_suffix("window"))
 
         try:
             pw.run(monitoring_level=pw.MonitoringLevel.NONE, default_logging=False)
         finally:
             if watermark_store is not None:
                 watermark_store.close()
+
+    def _output_kwargs_with_suffix(self, suffix: str) -> dict[str, Any]:
+        """Derive output kwargs for a secondary table (window / inactivity) by suffixing the
+        destination of the primary (instant) output, so each table lands in its own sink."""
+        destination_keys = ("filename", "topic_name", "topic", "table_name")
+        for key in destination_keys:
+            if key not in self.output_kwargs:
+                continue
+            if key == "filename":
+                path = Path(self.output_kwargs["filename"])
+                value = str(path.parent / f"{path.stem}_{suffix}{path.suffix}")
+            else:
+                value = f"{self.output_kwargs[key]}_{suffix}"
+            return {**self.output_kwargs, key: value}
+        return dict(self.output_kwargs)
+
+    def __set_up_inactivity_detection(self, input_table: pw.Table) -> pw.Table | None:
+        if not self.inactivity_detection_params:
+            return None
+
+        # https://pathway.com/developers/api-docs/temporal#pathway.stdlib.temporal.inactivity_detection
+        kwargs = {
+            "allowed_inactivity_period": pw.Duration(
+                seconds=self.inactivity_detection_params["allowed_inactivity_period_sec"]
+            ),
+            "refresh_rate": pw.Duration(
+                seconds=self.inactivity_detection_params["refresh_rate_sec"]
+            ),
+            "instance": (
+                pw.this[self.inactivity_detection_params["groupby_column"]]
+                if self.inactivity_detection_params["groupby_column"]
+                else None
+            ),
+        }
+        return input_table.assert_append_only().inactivity_detection(**kwargs)
 
     def __subscribe_watermark(
         self,
