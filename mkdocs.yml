@@ -1,5 +1,5 @@
 site_name: Streamdaq Docs
-repo_url: https://github.com/bilpapster/stream-DaQ
+repo_url: https://github.com/Datalab-Csd-Auth/streamdaq
 repo_name: datalab/streamdaq
 theme:
   logo: images/logo.png
@@ -32,9 +32,6 @@ extra:
   homepage: https://datalab.csd.auth.gr/
 plugins:
   - search
-  - gen-files:
-      scripts:
-      - assets/scripts/generate_api_reference_docs.py
   - literate-nav:
       nav_file: SUMMARY.md
   - section-index
@@ -79,15 +76,34 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.mark
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.tilde
 nav:
   - Home: index.md
+  - Getting Started: notebooks/starting_example.ipynb
+  - User Guide:
+    - Overview: user-guide/index.md
+    - Tasks and Sessions: user-guide/tasks-and-sessions.md
+    - Instant Checks: user-guide/instant-checks.md
+    - Window Checks: user-guide/window-checks.md
+    - Measures: user-guide/measures.md
+    - Assessments: user-guide/assessments.md
+    - Inputs and Outputs: user-guide/inputs-and-outputs.md
+    - Compact Data: user-guide/compact-data.md
+    - Custom Code: user-guide/custom-code.md
+    - REST API and CLI: user-guide/rest-api.md
+    - Hot-swapping and Persistence: user-guide/hot-swapping.md
+    - Logging: user-guide/logging.md
+    - Advanced Examples: user-guide/advanced-examples.md
+    - Good to Know: user-guide/good-to-know.md
   - Concepts:
     - Overview: concepts/index.md
     - Stream-first Data Quality: concepts/data-quality.md
     - Real-time Monitoring: concepts/real-time-monitoring.md
     - Compact vs Native Data Formats: concepts/compact-vs-native-data.md
-  - Examples:
-    - notebooks/starting_example.ipynb
-  - API Reference: reference/
