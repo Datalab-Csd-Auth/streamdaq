@@ -29,12 +29,26 @@ task.add_window_checks(
 Each window produces its results **exactly once**, as soon as the event time in the stream passes the end of the
 window. Records that arrive after that, for a window that has already been closed, are not counted in it.
 
+To tolerate late records, keep each window open a little longer with `wait_for_late`, in the units of the time column:
+
+```py title="Waiting for late records"
+task = Task(
+    input=input_source,
+    output=output_sink,
+    windowby_column="event_timestamp",
+    wait_for_late=5,  # report [0, 30) once event time reaches 35
+)
+```
+
+Records for a window that arrive within the wait are still counted; later ones are left out.
+
 ## Trade-offs to consider
 
 ### Latency vs completeness
 
-- Window results are emitted as soon as each window closes, so latency stays low and every window is reported once.
-- Records that arrive too late for their window are left out, so out-of-order streams can under-count.
+- Without `wait_for_late`, window results are emitted as soon as each window closes, so latency stays low, but records
+  that arrive too late for their window are left out, and out-of-order streams can under-count.
+- A larger `wait_for_late` counts more late records, at the cost of reporting every window later.
 
 ### Memory vs statistical stability
 
@@ -44,6 +58,6 @@ window. Records that arrive after that, for a window that has already been close
 ## Recommended starting point
 
 1. Use the column that records when each event happened as `windowby_column`, not the arrival time.
-2. Measure your real arrival-delay distribution, to know how often records arrive after their window has closed.
+2. Measure your real arrival-delay distribution, and set `wait_for_late` to cover most of it.
 3. Tune window sizes to your data frequency and operational SLAs.
 4. Validate behavior under realistic traffic patterns.
