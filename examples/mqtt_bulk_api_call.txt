@@ -18,6 +18,11 @@ curl --location 'localhost:8080/api/v1/bulk_create' \
       "filename": "output.jsonl"
     }
   },
+  "inactivity_detection_params": {
+    "allowed_inactivity_period_sec": 5,
+    "refresh_rate_sec": 1,
+    "groupby_column": "unit_id"
+  },
   "instant_checks": [
     {
       "name": "valid_time",

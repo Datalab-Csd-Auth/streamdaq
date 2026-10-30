@@ -16,6 +16,11 @@
       "filename": "output.jsonl"
     }
   },
+  "inactivity_detection_params": {
+    "allowed_inactivity_period_sec": 5,
+    "refresh_rate_sec": 1,
+    "groupby_column": "unit_id"
+  },
   "instant_checks": [
     {
       "name": "valid_time",
