@@ -40,4 +40,7 @@ def split_connector_params(params: dict, reserved_keys: tuple[str, ...]) -> dict
     """
     if "connector_params" in params:
         return params["connector_params"]
-    return {key: value for key, value in params.items() if key not in reserved_keys}
+    return {
+        key: value 
+        for key, value in params.items() if key not in reserved_keys
+    }

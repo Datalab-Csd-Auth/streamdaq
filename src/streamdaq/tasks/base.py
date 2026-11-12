@@ -3,7 +3,7 @@ import multiprocessing
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 import dill
 import pathway as pw
@@ -81,7 +81,9 @@ class Task:
             )
 
         self.add_instant_checks(*instant_checks)
-        self.add_window_checks(*window_checks)
+
+        if window is not None:
+            self.add_window_checks(*window_checks, window=window)
 
         return self
 
@@ -183,7 +185,10 @@ class Task:
 
         pw.io.subscribe(window_table, on_window)
 
-    def __construct_pw_dag(self, table: pw.Table) -> pw.Table:
+    def __construct_pw_dag(
+        self,
+        table: pw.Table
+    ) -> tuple[Optional[pw.Table], Optional[pw.Table]]:
         self.instant_table = self.__construct_instant_pw_dag(table) if self.instant_checks else None
         self.window_table = self.__construct_window_pw_dag(table) if self.window_checks else None
         return self.instant_table, self.window_table

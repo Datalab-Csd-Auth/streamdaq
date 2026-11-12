@@ -36,10 +36,10 @@ Example Event Buss Message (EVB) Format:
 import json
 from collections.abc import Callable
 from enum import auto
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 import pathway as pw
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from strenum import LowercaseStrEnum, PascalCaseStrEnum
 
 
@@ -52,6 +52,16 @@ class EVBKeyNames(LowercaseStrEnum):
     FIELDS = auto()
     VALUES = auto()
 
+    def get_matched(
+        self,
+        o: dict[str, Any],
+        case_insensitive: bool = True
+    ) -> str | None:
+        for org_name in o.keys():
+            name = org_name.lower() if case_insensitive else org_name
+
+            if str(self.value) == name:
+                return org_name
 
 class _StreamdaqInternalColumnNames(LowercaseStrEnum):
     PYDANTIC_ERRORS = auto()
@@ -78,11 +88,16 @@ _VALID_TIME_DIGITS = 13
 
 
 class _EVBMeasurement(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     name: str
     tags: dict[str, str]
-    type: _EVBMeasurementType
+    type: Optional[_EVBMeasurementType] = Field(
+        default=None,
+        strict=False,
+    )
     fields: list[str]
-    values: list[list[int | float]]
+    values: list[list[Any]]
 
     @model_validator(mode="before")
     @classmethod
@@ -97,7 +112,7 @@ class _EVBMeasurement(BaseModel):
                 "instead of JSON-'str' or 'dict'"
             )
 
-        return {str(key).lower(): value for key, value in measurement.items()}
+        return {str(key).strip().lower(): value for key, value in measurement.items()}
 
     def validate_time_is_first_field(self) -> str | None:
         first_field = self.fields[0]
@@ -146,7 +161,7 @@ class _EVBMeasurement(BaseModel):
     @model_validator(mode="after")
     def validate_measurement_after_pydantic(self) -> Self:
         all_errors: list[str] = []
-        validation_functions: list[Callable[[Self], str | None]] = [
+        validation_functions: list[Callable[[], str | None]] = [
             self.validate_time_is_first_field,
             self.validate_lengths_of_fields_and_values,
             self.validate_time_values,
@@ -171,11 +186,11 @@ class SniffedEVBSchema(BaseModel):
     values: list[Any]
     tags: dict[str, str]
 
-    def serialize(self) -> dict[str, Any]:
-        fields: tuple[tuple[str, type]] = tuple(
+    def serialize(self) -> dict[str, tuple[tuple[str, type], ...]]:
+        fields: tuple[tuple[str, type], ...] = tuple(
             (field, type(value)) for field, value in zip(self.fields, self.values)
         )
-        tags: tuple = tuple()
+        tags: tuple[tuple[str, type[str]], ...] = tuple()
         if len(self.tags) > 0:
-            tags: tuple[tuple[str, str]] = tuple((tag, str) for tag in self.tags.keys())
+            tags = tuple((tag, str) for tag in self.tags.keys())
         return {"fields": fields, "tags": tags}

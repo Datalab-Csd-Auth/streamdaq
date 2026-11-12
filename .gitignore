@@ -214,8 +214,6 @@ __marimo__/
 # Docs (generated artifacts are ignored above; keep source docs tracked)
 serve_docs.sh
 
-Dockerfile
-
 .streamdaq_db/
 .streamdaq_monitoring/
 .internals/

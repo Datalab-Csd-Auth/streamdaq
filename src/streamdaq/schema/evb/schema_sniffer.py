@@ -32,9 +32,10 @@ def _evb_native_schema_sniff_worker(
 
     def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool) -> None:
         try:
-            evb = ValidatableEVBSchema(
-                **Transform.to_pydantic_validatable(row[EVBKeyNames.MEASUREMENTS]),
-                strict=True,
+            evb = ValidatableEVBSchema.model_validate(
+                Transform.to_pydantic_validatable(
+                    row[EVBKeyNames.MEASUREMENTS]
+                )
             )
         except ValidationError:
             # Invalid message, wait for the next one
@@ -61,8 +62,7 @@ def discover_native_evb_schema(
     timeout_seconds: int = 10,
     graceful_wait_seconds: int = 3,
     files_path: str | None = None,
-) -> tuple[tuple[str, type]]:
-
+) -> dict[str, tuple[tuple[str, type], ...]]:
     schema_queue = multiprocessing.Queue()
     get_table_function_payload = dill.dumps(get_table_function)
     sniffer_process = multiprocessing.Process(

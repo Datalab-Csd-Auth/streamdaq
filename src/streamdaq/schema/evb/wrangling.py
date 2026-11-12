@@ -13,7 +13,9 @@ from streamdaq.schema.evb.lambda_factory import LambdaFactory
 
 def _validate_with_pydantic(raw_evb: tuple[pw.Json]) -> str | None:
     try:
-        ValidatableEVBSchema(**Transform.to_pydantic_validatable(raw_evb))
+        ValidatableEVBSchema.model_validate(
+            Transform.to_pydantic_validatable(raw_evb)
+        )
         return None
     except ValidationError as e:
         return str(e)
@@ -36,20 +38,68 @@ class Transform:
         return {EVBKeyNames.MEASUREMENTS: [pw_json.as_dict() for pw_json in raw_evb]}
 
     @classmethod
+    def _extract_evb_key_if_exists(
+        cls,
+        raw_measurement: pw.Json,
+        key_value: str,
+        optional: bool = False
+    ) -> Any | None:
+        m = raw_measurement.as_dict()
+        key = EVBKeyNames(key_value)
+        if (
+            (field := key.get_matched(m)) is None 
+            and not optional
+        ):
+            raise TypeError(
+                f"Key '{key}' does not exist inside measurement"
+            )
+
+        return m.get(field, None)
+
+    @classmethod
     def explode_top_level(cls) -> dict[str, pw.ColumnExpression]:
         return {
-            EVBKeyNames.NAME: pw.this[EVBKeyNames.MEASUREMENTS][EVBKeyNames.NAME].as_str(),
-            EVBKeyNames.TAGS: pw.this[EVBKeyNames.MEASUREMENTS][EVBKeyNames.TAGS],
-            EVBKeyNames.TYPE: pw.this[EVBKeyNames.MEASUREMENTS][EVBKeyNames.TYPE].as_str(),
-            EVBKeyNames.FIELDS: pw.this[EVBKeyNames.MEASUREMENTS][EVBKeyNames.FIELDS],
-            EVBKeyNames.VALUES: pw.this[EVBKeyNames.MEASUREMENTS][EVBKeyNames.VALUES],
+            EVBKeyNames.NAME: pw.apply_with_type(
+                Transform._extract_evb_key_if_exists,
+                str,
+                pw.this[EVBKeyNames.MEASUREMENTS],
+                key_value=EVBKeyNames.NAME.value
+            ),
+            EVBKeyNames.TAGS: pw.apply_with_type(
+                Transform._extract_evb_key_if_exists,
+                dict[str, str] | None,
+                pw.this[EVBKeyNames.MEASUREMENTS],
+                key_value=EVBKeyNames.TAGS.value,
+                optional=True
+            ),
+            EVBKeyNames.TYPE: pw.apply_with_type(
+                Transform._extract_evb_key_if_exists,
+                str | None,
+                pw.this[EVBKeyNames.MEASUREMENTS],
+                key_value=EVBKeyNames.TYPE.value,
+                optional=True
+            ),
+            EVBKeyNames.FIELDS: pw.apply_with_type(
+                Transform._extract_evb_key_if_exists,
+                list[str],
+                pw.this[EVBKeyNames.MEASUREMENTS],
+                key_value=EVBKeyNames.FIELDS.value,
+            ),
+            EVBKeyNames.VALUES: pw.apply_with_type(
+                Transform._extract_evb_key_if_exists,
+                list[list[Any]],
+                pw.this[EVBKeyNames.MEASUREMENTS],
+                key_value=EVBKeyNames.VALUES.value,
+            ),
         }
 
     @classmethod
     def enrich_with_pydantic_errors(cls) -> dict[str, pw.ColumnExpression]:
         return {
             _StreamdaqInternalColumnNames.PYDANTIC_ERRORS: pw.apply_with_type(
-                _validate_with_pydantic, str | None, pw.this[EVBKeyNames.MEASUREMENTS]
+                _validate_with_pydantic,
+                str | None,
+                pw.this[EVBKeyNames.MEASUREMENTS]
             )
         }
 
@@ -57,15 +107,17 @@ class Transform:
     def extract_time_from_fields_values(cls) -> dict[str, pw.ColumnExpression]:
         return {
             _StreamdaqInternalColumnNames.TIME: pw.apply_with_type(
-                LambdaFactory.get_nth_list_element(0, int), int, pw.this.values
+                LambdaFactory.get_nth_list_element(0),
+                int,
+                pw.this[EVBKeyNames.VALUES]
             ),
             EVBKeyNames.VALUES: pw.apply_with_type(
-                LambdaFactory.get_list_elements_from_n_to_end(1, float),
+                LambdaFactory.get_list_elements_from_n_to_end(1),
                 list[float],
                 pw.this[EVBKeyNames.VALUES],
             ),
             EVBKeyNames.FIELDS: pw.apply_with_type(
-                LambdaFactory.get_list_elements_from_n_to_end(1, str),
+                LambdaFactory.get_list_elements_from_n_to_end(1),
                 list[str],
                 pw.this[EVBKeyNames.FIELDS],
             ),
@@ -73,14 +125,21 @@ class Transform:
 
     @classmethod
     def to_native(
-        cls, native_evb_schema: tuple[tuple[str, type]]
+        cls, native_evb_schema: dict[str, tuple[tuple[str, type], ...]]
     ) -> dict[str, pw.ColumnExpression]:
         return {
             column_name: pw.apply_with_type(
-                LambdaFactory.get_nth_list_element(idx), dtype, pw.this[EVBKeyNames.VALUES]
+                LambdaFactory.get_nth_list_element(idx),
+                dtype,
+                pw.this[EVBKeyNames.VALUES]
             )
             for idx, (column_name, dtype) in enumerate(native_evb_schema["fields"])
-        } | {tag: pw.this[EVBKeyNames.TAGS][tag].as_str() for tag, _ in native_evb_schema["tags"]}
+        } | {
+            tag: pw.coalesce(
+                pw.this[EVBKeyNames.TAGS],
+                pw.Json({})).get(tag).as_str()
+            for tag, _ in native_evb_schema["tags"]
+        }
 
     @classmethod
     def enrich_with_validation_errors_report(cls) -> dict[str, pw.ColumnExpression]:
@@ -104,7 +163,8 @@ class Transform:
 
 
 def convert_raw_evb_to_native_format(
-    raw_evb_table: pw.Table, native_evb_schema: tuple[tuple[str, type]]
+    raw_evb_table: pw.Table,
+    native_evb_schema: dict[str, tuple[tuple[str, type], ...]]
 ) -> pw.Table:
     return (
         raw_evb_table.with_columns(**Transform.enrich_with_pydantic_errors())
