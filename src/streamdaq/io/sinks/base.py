@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import ClassVar
 
 import pathway as pw
@@ -5,7 +6,7 @@ import pathway as pw
 from streamdaq.io.sinks.registry import SINK_REGISTRY
 
 
-class BaseSink:
+class BaseSink(ABC):
     """A streamdaq output sink that writes a ``pw.Table``.
 
     Subclasses implement :meth:`write` for their destination and declare a ``sink_type``; each
@@ -23,5 +24,6 @@ class BaseSink:
     def __call__(self, table: pw.Table, **params) -> None:
         self.write(table, **params)
 
+    @abstractmethod
     def write(self, table: pw.Table, **params) -> None:
-        raise NotImplementedError
+        ...

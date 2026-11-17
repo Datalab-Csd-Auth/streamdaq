@@ -16,7 +16,7 @@ class MqttSource(BaseSource):
         if data_format is not None:
             params["format"] = data_format
         params["uri"] = ensure_unique_mqtt_client_id(params.get("uri", ""), role="reader")
-        return pw.io.mqtt.read(**params)
+        return pw.io.mqtt.read(**params).assert_append_only()
 
     def _native_data_format(self) -> str:
         return self.connector_params.get("format", "json")

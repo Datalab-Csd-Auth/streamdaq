@@ -29,8 +29,12 @@ class DeltasTuple(DataQualityMeasure):
         reduce_kwargs[additional_kw] = additional_arg
         return reduce_kwargs
 
+    def _get_aggregator(self) -> Callable[[tuple], int | float] | None:
+        """Returns the deltas aggregator; override when it depends on the measure's parameters."""
+        return type(self)._aggregator
+
     def get_expression(self) -> pw.ColumnExpression:
-        aggregator = type(self)._aggregator
+        aggregator = self._get_aggregator()
 
         def compute(timestamps: tuple, values: tuple):
             result = compute_deltas_over_time(timestamps, values)
