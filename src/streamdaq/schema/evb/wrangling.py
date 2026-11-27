@@ -10,6 +10,18 @@ from streamdaq.schema.evb.definitions import (
 )
 from streamdaq.schema.evb.lambda_factory import LambdaFactory
 
+_RECORD = "_record"
+_JSON_ACCESSORS: dict[type, str] = {
+    bool: "as_bool",
+    int: "as_int",
+    float: "as_float",
+    str: "as_str",
+}
+
+
+def _zip_fields_and_values(fields: pw.Json, values: pw.Json, tags: pw.Json) -> pw.Json:
+    return pw.Json({**dict(zip(fields.as_list(), values.as_list())), **tags.as_dict()})
+
 
 def _validate_with_pydantic(raw_evb: tuple[pw.Json]) -> str | None:
     try:
@@ -72,15 +84,27 @@ class Transform:
         }
 
     @classmethod
-    def to_native(
-        cls, native_evb_schema: tuple[tuple[str, type]]
-    ) -> dict[str, pw.ColumnExpression]:
+    def zip_fields_and_values(cls) -> dict[str, pw.ColumnExpression]:
         return {
-            column_name: pw.apply_with_type(
-                LambdaFactory.get_nth_list_element(idx), dtype, pw.this[EVBKeyNames.VALUES]
+            _RECORD: pw.apply_with_type(
+                _zip_fields_and_values,
+                pw.Json,
+                pw.this[EVBKeyNames.FIELDS],
+                pw.this[EVBKeyNames.VALUES],
+                pw.this[EVBKeyNames.TAGS],
             )
-            for idx, (column_name, dtype) in enumerate(native_evb_schema["fields"])
-        } | {tag: pw.this[EVBKeyNames.TAGS][tag].as_str() for tag, _ in native_evb_schema["tags"]}
+        }
+
+    @classmethod
+    def to_native(
+        cls, native_evb_schema: dict[str, tuple[tuple[str, type], ...]]
+    ) -> dict[str, pw.ColumnExpression]:
+        # Columns are looked up by field name, so reordered fields don't swap values
+        record = pw.this[_RECORD]
+        return {
+            column_name: pw.unwrap(getattr(record.get(column_name), _JSON_ACCESSORS[dtype])())
+            for column_name, dtype in native_evb_schema["fields"]
+        } | {tag: record.get(tag).as_str() for tag, _ in native_evb_schema["tags"]}
 
     @classmethod
     def enrich_with_validation_errors_report(cls) -> dict[str, pw.ColumnExpression]:
@@ -100,17 +124,19 @@ class Transform:
             EVBKeyNames.FIELDS,
             EVBKeyNames.TAGS,
             _StreamdaqInternalColumnNames.PYDANTIC_ERRORS,
+            _RECORD,
         ]
 
 
 def convert_raw_evb_to_native_format(
-    raw_evb_table: pw.Table, native_evb_schema: tuple[tuple[str, type]]
+    raw_evb_table: pw.Table, native_evb_schema: dict[str, tuple[tuple[str, type], ...]]
 ) -> pw.Table:
     return (
         raw_evb_table.with_columns(**Transform.enrich_with_pydantic_errors())
         .flatten(pw.this[EVBKeyNames.MEASUREMENTS])
         .with_columns(**Transform.explode_top_level())
         .flatten(pw.this[EVBKeyNames.VALUES])
+        .with_columns(**Transform.zip_fields_and_values())
         .with_columns(**Transform.extract_time_from_fields_values())
         .with_columns(**Transform.enrich_with_validation_errors_report())
         .with_columns(**Transform.to_native(native_evb_schema))
