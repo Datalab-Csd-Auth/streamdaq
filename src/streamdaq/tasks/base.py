@@ -1,7 +1,9 @@
 import dataclasses
 import multiprocessing
+import operator
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import reduce
 from pathlib import Path
 from typing import Any, Self
 
@@ -109,36 +111,12 @@ class Task:
             self.__subscribe_watermark(instant_table, window_table, watermark_store)
 
         if isinstance(self.output, TaskOutput):
-            # TODO HERE WE NEED TO TAKE INTO ACCOUNT THE OPTIONS THAT THE TaskOutput class supports
-            # WE NEED TO COMPUTE THE failed table, valid ones, etc and also provide a better
-            # way for the user to provide output kwargs, ideally output kwargs dictionary per
-            # available option
-            self.output(instant_table, **self.output_kwargs)
+            self.__write_task_output(instant_table, window_table)
         elif isinstance(self.output, Callable):
             if instant_table:
                 self.output(instant_table, **self.output_kwargs)
             if window_table:
-                if "filename" in self.output_kwargs:
-                    p = Path(self.output_kwargs["filename"])
-                    window_filename = str(p.parent / f"{p.stem}_window{p.suffix}")
-                    window_kwargs = {**self.output_kwargs, "filename": window_filename}
-                elif "topic_name" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "topic_name": f"{self.output_kwargs['topic_name']}_window",
-                    }
-                elif "topic" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "topic": f"{self.output_kwargs['topic']}_window",
-                    }
-                elif "table_name" in self.output_kwargs:
-                    window_kwargs = {
-                        **self.output_kwargs,
-                        "table_name": f"{self.output_kwargs['table_name']}_window",
-                    }
-                else:
-                    window_kwargs = dict(self.output_kwargs)
+                window_kwargs = self._suffixed_output_kwargs(self.output_kwargs, "_window")
                 self.output(window_table, **window_kwargs)
 
         try:
@@ -146,6 +124,56 @@ class Task:
         finally:
             if watermark_store is not None:
                 watermark_store.close()
+
+    def __write_task_output(
+        self, instant_table: pw.Table | None, window_table: pw.Table | None
+    ) -> None:
+        """Writes every result to `meta_stream`, and splits them by the checks' verdicts.
+
+        `valid_only` gets the rows where every check passed, `errors_only` the rows where any
+        check failed. Window rows are judged by the window checks that have a `must_be`, and go
+        to a `_window` destination.
+        """
+        output = self.output
+        instant_checks = [check.name for check in self.instant_checks]
+        window_checks = [check.name for check in self.window_checks if check.must_be is not None]
+        tables = [
+            (instant_table, instant_checks, ""),
+            (window_table, window_checks, "_window"),
+        ]
+        for table, check_names, suffix in tables:
+            if table is None:
+                continue
+            output.meta_stream(
+                table, **self._suffixed_output_kwargs(output.meta_stream_kwargs, suffix)
+            )
+            if not check_names:
+                continue
+            # A null verdict (e.g. a check on a missing optional field) counts as a failure
+            passed = reduce(
+                operator.and_, [pw.coalesce(pw.this[name], False) for name in check_names]
+            )
+            if output.valid_only is not None:
+                output.valid_only(
+                    table.filter(passed),
+                    **self._suffixed_output_kwargs(output.valid_only_kwargs, suffix),
+                )
+            if output.errors_only is not None:
+                output.errors_only(
+                    table.filter(~passed),
+                    **self._suffixed_output_kwargs(output.errors_only_kwargs, suffix),
+                )
+
+    @staticmethod
+    def _suffixed_output_kwargs(output_kwargs: dict[str, Any], suffix: str) -> dict[str, Any]:
+        """Output kwargs pointing to a sibling destination: a file, topic or table with a suffix."""
+        if "filename" in output_kwargs:
+            p = Path(output_kwargs["filename"])
+            return {**output_kwargs, "filename": str(p.parent / f"{p.stem}{suffix}{p.suffix}")}
+        for key in ("topic_name", "topic", "table_name"):
+            if key in output_kwargs:
+                return {**output_kwargs, key: f"{output_kwargs[key]}{suffix}"}
+        return dict(output_kwargs)
 
     def __subscribe_watermark(
         self,
