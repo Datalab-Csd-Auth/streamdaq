@@ -78,8 +78,6 @@ Source-specific settings:
 
 !!! warning "Known limitations"
     - **`csv`:** the `schema` setting isn't passed to Pathway, which requires one, so CSV tasks fail when they start. Use `jsonlines`, or a [custom source](custom-code.md#sources), until this is fixed.
-    - **`kafka`:** the source currently adds a `group.id` setting that Pathway rejects, so Kafka tasks fail when they start. A [custom source](custom-code.md#sources) calling `pw.io.kafka.read` works in the meantime.
-    - **Compact data with `schema`:** with `data_type: "compact"`, leave `schema` out and let Stream DaQ [discover it](compact-data.md#schema-discovery). Giving a schema currently fails.
 
 ### Sinks
 

@@ -15,8 +15,10 @@ class KafkaSource(BaseSource):
             params["schema"] = schema
         if data_format is not None:
             params["format"] = data_format
-        if "group.id" not in params:
-            params["group.id"] = f"streamdaq_reader_{uuid.uuid4().hex[:8]}"
+        # Pathway reads the consumer group from the rdkafka settings only
+        rdkafka_settings = dict(params.get("rdkafka_settings", {}))
+        rdkafka_settings.setdefault("group.id", f"streamdaq_reader_{uuid.uuid4().hex[:8]}")
+        params["rdkafka_settings"] = rdkafka_settings
         return pw.io.kafka.read(**params)
 
     def _native_data_format(self) -> str:

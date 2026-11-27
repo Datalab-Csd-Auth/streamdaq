@@ -53,10 +53,13 @@ class BaseSource:
 
         data_format = self._compact_data_format()
         if self.schema_params:
-            native_evb_schema = tuple(
-                (column, DTYPE_STR_TO_DTYPE[dtype_str])
-                for column, dtype_str in self.schema_params.items()
-            )
+            native_evb_schema = {
+                "fields": tuple(
+                    (column, DTYPE_STR_TO_DTYPE[dtype_str])
+                    for column, dtype_str in self.schema_params.items()
+                ),
+                "tags": (),
+            }
         else:
             native_evb_schema = discover_native_evb_schema(
                 get_table_function=Lambda(

@@ -55,7 +55,8 @@ class TestKafkaSource:
         source = KafkaSource({"topic": "t"})
         with patch("streamdaq.io.sources.kafka_source.pw.io.kafka.read") as mock_read:
             source()
-            assert mock_read.call_args.kwargs["group.id"].startswith("streamdaq_reader_")
+            rdkafka_settings = mock_read.call_args.kwargs["rdkafka_settings"]
+            assert rdkafka_settings["group.id"].startswith("streamdaq_reader_")
 
 
 class TestCsvSource:
