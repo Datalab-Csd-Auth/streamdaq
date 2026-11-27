@@ -1,5 +1,4 @@
 from streamdaq.io.sources.base import BaseSource
-from streamdaq.io.sources.csv_source import CsvSource
 from streamdaq.io.sources.custom_source import CustomSource, build_custom_input
 from streamdaq.io.sources.jsonlines_source import JsonlinesSource
 from streamdaq.io.sources.kafka_source import KafkaSource
@@ -11,7 +10,6 @@ from streamdaq.io.sources.registry import SOURCE_REGISTRY
 __all__ = [
     "SOURCE_REGISTRY",
     "BaseSource",
-    "CsvSource",
     "CustomSource",
     "JsonlinesSource",
     "KafkaSource",

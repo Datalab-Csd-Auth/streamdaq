@@ -169,7 +169,7 @@ class TestTaskConfigStartabilityValidation:
     def _config_kwargs(self, **overrides) -> dict:
         base = dict(
             name="t",
-            input=InputConfig(type="csv", params={"path": "/tmp/x.csv"}),
+            input=InputConfig(type="jsonlines", params={"path": "/tmp/x.jsonl"}),
             output=OutputConfig(type="jsonlines", params={"filename": "o.jsonl"}),
             instant_checks=[_instant_check()],
             window_checks_config=_window_checks_config(_window_check()),

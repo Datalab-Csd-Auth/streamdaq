@@ -62,8 +62,8 @@ Session(tasks=[task]).start()
 ```
 
 1.  `output` accepts any function that takes a table. Here, every result row is printed as it arrives. Built-in sinks
-    write to CSV, JSON Lines, Kafka, MQTT or Postgres instead.
-2.  Any function that returns a Pathway table can be the input, for example one reading from Kafka, MQTT or a CSV file.
+    write to JSON Lines, Kafka, MQTT or Postgres instead.
+2.  Any function that returns a Pathway table can be the input, for example one reading from Kafka or MQTT.
 3.  Adds `window_start` and `window_end` as the first columns of every per-window result.
 4.  Any output sink that emits a pw.Table
 
