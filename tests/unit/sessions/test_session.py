@@ -21,7 +21,7 @@ def _persisted_config(name: str, status: TaskStatus) -> TaskConfig:
     return TaskConfig(
         name=name,
         status=status,
-        input=InputConfig(type="csv", params={"path": "/tmp/data.csv"}),
+        input=InputConfig(type="jsonlines", params={"path": "/tmp/data.jsonl"}),
         output=OutputConfig(type="jsonlines", params={"filename": "out.jsonl"}),
         instant_checks=[
             InstantCheckConfig(
@@ -108,7 +108,7 @@ def _idle_worker() -> None:
 def _config(name: str = "t") -> TaskConfig:
     return TaskConfig(
         name=name,
-        input=InputConfig(type="csv", params={"path": "/tmp/data.csv"}),
+        input=InputConfig(type="jsonlines", params={"path": "/tmp/data.jsonl"}),
         output=OutputConfig(type="jsonlines", params={"filename": "out.jsonl"}),
         instant_checks=[
             InstantCheckConfig(

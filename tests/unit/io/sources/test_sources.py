@@ -7,7 +7,6 @@ import pathway as pw
 import pytest
 
 from streamdaq.io.sources import SOURCE_REGISTRY
-from streamdaq.io.sources.csv_source import CsvSource
 from streamdaq.io.sources.kafka_source import KafkaSource
 from streamdaq.io.sources.mqtt_source import MqttSource
 from streamdaq.io.sources.parquet_source import ParquetSource
@@ -16,9 +15,7 @@ from streamdaq.io.sources.python_source import PythonConnectorSource
 
 class TestSourceRegistration:
     def test_all_built_in_sources_are_registered_by_type(self):
-        assert {"csv", "parquet", "python_connector", "kafka", "mqtt", "jsonlines"} == set(
-            SOURCE_REGISTRY
-        )
+        assert {"parquet", "python_connector", "kafka", "mqtt", "jsonlines"} == set(SOURCE_REGISTRY)
 
     def test_registry_value_builds_the_matching_source_instance(self):
         source = SOURCE_REGISTRY["mqtt"]({"connector_params": {"uri": "mqtt://b/t"}})
@@ -56,25 +53,6 @@ class TestKafkaSource:
         with patch("streamdaq.io.sources.kafka_source.pw.io.kafka.read") as mock_read:
             source()
             assert mock_read.call_args.kwargs["group.id"].startswith("streamdaq_reader_")
-
-
-class TestCsvSource:
-    def test_streaming_mode_reads_via_csv(self):
-        source = CsvSource({"path": "/tmp/data.csv"})
-        with patch("streamdaq.io.sources.csv_source.pw.io.csv.read") as mock_read:
-            source()
-            assert mock_read.call_args.kwargs["path"] == "/tmp/data.csv"
-
-    def test_static_mode_reads_via_fs(self):
-        source = CsvSource({"path": "/tmp/data.csv", "mode": "static"})
-        with patch("streamdaq.io.sources.csv_source.pw.io.fs.read") as mock_read:
-            source()
-            assert mock_read.call_args.kwargs["mode"] == "static"
-
-    def test_compact_data_format_is_rejected(self):
-        source = CsvSource({"path": "/tmp/data.csv", "data_type": "compact"})
-        with pytest.raises(ValueError, match="does not support the 'compact' data format"):
-            source()
 
 
 class TestParquetSource:

@@ -58,7 +58,6 @@ Tasks sent to the [REST API](rest-api.md) pick a source and a sink by name, with
 | `kafka` | A Kafka topic, with `pw.io.kafka.read` | yes |
 | `python_connector` | A Pathway Python connector class from an importable module | yes |
 | `parquet` | A Parquet file, read **once** (not streamed) | no |
-| `csv` | CSV files, with `pw.io.csv.read` | no |
 
 Settings shared by all sources:
 
@@ -66,7 +65,7 @@ Settings shared by all sources:
 |---|---|
 | `data_type` | `"native"` (default): one value per column. `"compact"`: [compact messages](compact-data.md), several measurements per message. |
 | `schema` | The columns and their types, e.g. `{"timestamp": "int", "unit_id": "str"}`. Types: `"int"`, `"float"`, `"str"`, `"bool"`, `"bytes"`. Required for native JSON data. |
-| `mode` | `jsonlines` and `csv` only: `"streaming"` (default, keeps watching for new data) or `"static"` (reads once). |
+| `mode` | `jsonlines` only: `"streaming"` (default, keeps watching for new data) or `"static"` (reads once). |
 | `connector_params` | Settings passed to the Pathway reader as they are. If left out, every other setting (apart from those above) is passed instead. |
 
 Source-specific settings:
@@ -77,7 +76,6 @@ Source-specific settings:
 - **`parquet`:** `path`.
 
 !!! warning "Known limitations"
-    - **`csv`:** the `schema` setting isn't passed to Pathway, which requires one, so CSV tasks fail when they start. Use `jsonlines`, or a [custom source](custom-code.md#sources), until this is fixed.
     - **`kafka`:** the source currently adds a `group.id` setting that Pathway rejects, so Kafka tasks fail when they start. A [custom source](custom-code.md#sources) calling `pw.io.kafka.read` works in the meantime.
     - **Compact data with `schema`:** with `data_type: "compact"`, leave `schema` out and let Stream DaQ [discover it](compact-data.md#schema-discovery). Giving a schema currently fails.
 
@@ -86,7 +84,6 @@ Source-specific settings:
 | `type` | Writes with | Typical settings |
 |---|---|---|
 | `jsonlines` | `pw.io.jsonlines.write` | `filename` |
-| `csv` | `pw.io.csv.write` | `filename` |
 | `kafka` | `pw.io.kafka.write` | `rdkafka_settings`, `topic_name`, `format` |
 | `mqtt` | `pw.io.mqtt.write` | `uri`, `topic` (a unique `client_id` is added automatically) |
 | `postgres` | `pw.io.postgres.write` | `postgres_settings`, `table_name` |

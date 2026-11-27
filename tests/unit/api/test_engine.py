@@ -2,7 +2,7 @@
 
 ``build_task`` converts a declarative ``TaskConfig`` into a concrete ``Task`` by
 resolving each named component through the real registries. These tests use real
-registries and real config objects; the CSV source is not invoked, so nothing
+registries and real config objects; the source is not invoked, so nothing
 touches the network.
 """
 
@@ -20,7 +20,7 @@ from streamdaq.api.models import (
     WindowConfig,
 )
 from streamdaq.checks.instant.any_column.in_range import InRange
-from streamdaq.io.sources.csv_source import CsvSource
+from streamdaq.io.sources.jsonlines_source import JsonlinesSource
 from streamdaq.measures.numeric.mean import Mean
 
 
@@ -37,7 +37,7 @@ def _full_config_kwargs(**overrides):
     }
     kwargs = dict(
         name="my_task",
-        input=InputConfig(type="csv", params={"path": "/tmp/data.csv"}),
+        input=InputConfig(type="jsonlines", params={"path": "/tmp/data.jsonl"}),
         output=OutputConfig(type="jsonlines", params={"filename": "out.jsonl"}),
         instant_checks=[
             InstantCheckConfig(
@@ -73,7 +73,7 @@ class TestBuildTaskBasics:
     def test_input_is_resolved_to_a_callable(self):
         config = TaskConfig(**_full_config_kwargs())
         task = build_task(config)
-        assert isinstance(task.input, CsvSource)
+        assert isinstance(task.input, JsonlinesSource)
         assert callable(task.input)
 
     def test_output_callable_and_kwargs_are_wired(self):

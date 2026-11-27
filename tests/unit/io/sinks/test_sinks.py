@@ -10,7 +10,7 @@ from streamdaq.io.sinks.mqtt_sink import MqttSink
 
 class TestSinkRegistration:
     def test_all_built_in_sinks_are_registered_by_type(self):
-        assert {"jsonlines", "csv", "postgres", "kafka", "mqtt"} <= set(SINK_REGISTRY)
+        assert {"jsonlines", "postgres", "kafka", "mqtt"} <= set(SINK_REGISTRY)
 
     def test_registry_value_is_a_callable_sink_instance(self):
         sink = SINK_REGISTRY["jsonlines"]
